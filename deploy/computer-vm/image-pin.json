@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "recordedOn": "2026-11-16",
+  "omarchy": {
+    "version": "4.5.0",
+    "build": 479,
+    "channel": "stable",
+    "manifest": "https://nightly.omarchy.org/stable/latest.json",
+    "x86_64": {
+      "kind": "qcow2",
+      "url": "https://nightly.omarchy.org/stable/4.5.0/479/omarchy-4.5.0.qcow2",
+      "sha256": "dcb401aabf1b01bf3c983a1b048bcd0ac7d66e4f5a755acd9452bf66e18cd5c4",
+      "size": 4182376448,
+      "unpacked": "https://nightly.omarchy.org/stable/4.5.0/479/unpacked/",
+      "unpackedSha256": {
+        "vmlinuz": "b4aae0fbbcfe8893671f504b2971373c43350d029d28f1c9d69d8f516fae6756",
+        "initrd": "b38fca90c90f480811abcd6ccfe7113d08c6a161f6e434316d05278f47551379",
+        "cmdline": "7d758d7619cca809fcbca360b1e4d0a8da484271cbc19f39a81d44e954e39603"
+      }
+    }
+  },
+  "omarchyServer": {
+    "repository": "https://github.com/TouchWorkStation/omarchy-server.git",
+    "commit": "41385a44fceb03e982e93d4ca8048816c489ef12",
+    "version": "0.9.13",
+    "helperSha256": "4aa15b754fa9ae095b2475478e650c478efb29ba1b480336ce27e153168daa39"
+  },
+  "browserosNeo": {
+    "version": "0.52.1.1",
+    "release": "https://github.com/browseros-ai/BrowserOS/releases/tag/browserclaw/v0.52.0",
+    "license": "AGPL-3.0",
+    "x86_64": {
+      "url": "https://github.com/browseros-ai/BrowserOS/releases/download/browserclaw/v0.52.0/BrowserOS_neo_v0.52.1.1_x64.AppImage",
+      "sha256": "c62c050c1fd676287b11b203294ab05c8ee6ad8aefa2369aadbda0b37e1a1379",
+      "size": 223488504
+    },
+    "aarch64": {
+      "url": "https://github.com/browseros-ai/BrowserOS/releases/download/browserclaw/v0.52.0/BrowserOS_neo_v0.52.1.1_arm64.AppImage",
+      "sha256": "8ffbfbe0395c7c9e0c9becce12cb48d13d0c78c60c5c8247d3dfa982ae75ec53",
+      "size": 210987528
+    }
+  }
+}
