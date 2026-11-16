@@ -3,11 +3,12 @@ import { createHash } from "node:crypto";
 import { request, type IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
 import type { Duplex } from "node:stream";
+import { bridgeRfbWebSocket } from "../browser/neo/rfb-bridge.ts";
 import { isSameOrigin, type RequestAuth } from "../request-auth.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 import { createUpgrades, type Upgrades } from "./upgrades.ts";
 
-const ROUTE = /^\/api\/desktop-viewer\/(local\/(?:shared|bot-[a-f0-9]{64}|pool-\d+)|vps\/[\w-]+)(\/websockify)?$/;
+const ROUTE = /^\/api\/desktop-viewer\/(local\/(?:shared|neo|bot-[a-f0-9]{64}|pool-\d+)|vps\/[\w-]+)(\/websockify)?$/;
 const HANDSHAKE_MS = 10_000;
 const RECHECK_MS = 5_000;
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -18,6 +19,8 @@ const CONTROL_LEASE = /^[A-Za-z0-9_-]{16,120}$/;
 export interface DesktopConnection {
   port: number;
   password: string | null;
+  protocol?: "websockify" | "rfb";
+  host?: string;
   live?: () => boolean;
   touch?: () => void;
   /** Acquired only by WebSockets; release must not close other viewers. */
@@ -110,6 +113,14 @@ export function createDesktopViewer(deps: {
     if (req.headers.upgrade?.toLowerCase() !== "websocket" || req.headers["sec-websocket-version"] !== "13"
       || typeof key !== "string" || !/^[A-Za-z0-9+/]{22}==$/.test(key)) {
       return json(res, 400, { error: "Invalid WebSocket handshake" });
+    }
+    if (connection.protocol === "rfb") {
+      bridgeRfbWebSocket({
+        req, res, pending, host: connection.host ?? "127.0.0.1", port: connection.port,
+        live, holds, touch: connection.touch, retain: connection.retain,
+        onRegisterClose: (close) => { upgrade.close = close; }, json,
+      });
+      return;
     }
     // Fixed host and path, port from an inspected managed container. Never forward cookies, bearer tokens, query parameters or forwarded headers.
     const upstream = request({
