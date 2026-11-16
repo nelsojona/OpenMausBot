@@ -223,6 +223,11 @@ The [remote desktop viewer fixture](desktop-viewer.md) checks the bundled
 noVNC page, authenticated WebSocket proxy, desktop input, reconnect and logout
 against an isolated server, synthetic desktop and VPS SSH forward.
 
+The [BrowserOS neo fixture](browseros-neo.md) checks the narrowed `omb-browser-proxy.mjs`
+endpoint, SSRF refusal, nonce unwrapping, opted-out negative control, `NeoLive`
+browser streaming, raw-RFB `local/neo` Computer panel takeover, and the
+`/browseros-neo` slash skill in an isolated workspace.
+
 The [bot settings fixture](bot-settings.md) checks profile saves, standing
 instructions, history restore, skill/memory refresh, and stale-response isolation.
 
