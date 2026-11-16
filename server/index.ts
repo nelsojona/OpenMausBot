@@ -616,7 +616,7 @@ import { createUndoRoutes } from "./routes/undo.ts";
 import { createDesktopViewer, desktopViewerUrl } from "./routes/desktop-viewer.ts";
 import { createUpgrades } from "./routes/upgrades.ts";
 import { createBrowserViewerRoutes } from "./routes/browser-viewers.ts";
-import { localDesktopTarget, localVmViewerStatus } from "./desktop-viewer-targets.ts";
+import { localDesktopTarget, localVmViewerStatus } from "./desktop-viewer-targets.ts"; import { neoDesktopTarget, neoLocalVmFallback, neoViewerLease, neoVmScreenLive } from "./browser/neo/vm-screen.ts";
 import { DESKTOP_VIEWER_TARGET, viewerTargetId } from "../shared/desktop-viewer.ts";
 import { createComputerPreviews } from "./computer-previews.ts";
 import { createAntigravityLeftoverRoutes } from "./routes/antigravity-leftovers.ts";
@@ -4615,6 +4615,7 @@ const phoneScreen = createPhoneScreenRoutes({ upgrades, hold: phoneHold, enabled
 const desktopViewer = createDesktopViewer({
   upgrades,
   target: (id) => {
+    if (id === "local/neo") return neoDesktopTarget(() => cfg, DATA_DIR, () => store.bots);
     if (id.startsWith("vps/")) {
       const botId = id.slice(4);
       if (store.bot(botId)?.cloudBackend !== "vps") return;
@@ -4636,6 +4637,7 @@ const desktopViewer = createDesktopViewer({
   // A control lease opens only the computer it holds, and only when that is the desktop being viewed.
   lease: (id, botId, controlLeaseId, threadId) => {
     const bot = store.bot(botId);
+    if (bot && id === "local/neo") return neoViewerLease(bot, cfg, DATA_DIR, sharedVm.leaseKey(bot, threadId), controlLeaseId, (key, leaseId) => computerControl.beat(key, leaseId));
     if (!bot || viewerTargetId(localVmTargetForStatus(bot.id, threadId)) !== id) return;
     const key = sharedVm.leaseKey(bot, threadId);
     const holds = () => computerControl.beat(key, controlLeaseId);
@@ -5993,6 +5995,7 @@ async function computerPreviewSurface(bot: BotRecord, threadId?: string) {
   }
   if (!CLOUD_HOME && shouldMountLocalComputer({ requested: undefined, hostPlatform: process.platform,
     providerSupportsLocal: instance?.adapter.capabilities.localComputerMcp === true }) && desktopComputer.connection()) return "local";
+  if (!CLOUD_HOME && await neoVmScreenLive(cfg, DATA_DIR, bot)) return "vm";
   if (bot.cloudBackend === "vps") return "cloud";
   return plan.browser ? "browser" : "off";
 }
@@ -11590,8 +11593,8 @@ const { fillLoginForTurn } = createFillLoginTurn({
   stepContext: (bot, turn) => stepContext(bot, turn, () => liveTurnByThread.get(turn.threadId) ?? null),
 });
 
-async function localVmPayload(target: LocalVmTarget, auth: RequestAuth) {
-  const status = localVmUpdates.describe(target, await containerComputerStatus(undefined, undefined, target));
+async function localVmPayload(target: LocalVmTarget, auth: RequestAuth, bot?: BotRecord) {
+  const status = await neoLocalVmFallback(localVmUpdates.describe(target, await containerComputerStatus(undefined, undefined, target)), cfg, DATA_DIR, bot);
   return {
     ...localVmViewerStatus(status, auth),
     stop_reason: localVmStopReason(target.key, status),
