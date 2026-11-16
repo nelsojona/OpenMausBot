@@ -1,8 +1,10 @@
 import { z, type ZodString } from "zod";
 import * as boat from "../boat.ts";
 import { boatHealth } from "../boat-health.ts";
+import { resolveNeoVmScreen } from "../browser/neo/config.ts";
+import { neoLocalVmFallback, neoVmScreenLive, neoVmScreenshot } from "../browser/neo/vm-screen.ts";
 import type { ComputerControl } from "../computer-control.ts";
-import { isValidSshAlias, localVmMaxInstances, localVmMode, localVmResources, type AppConfig } from "../config.ts";
+import { DATA_DIR, isValidSshAlias, localVmMaxInstances, localVmMode, localVmResources, type AppConfig } from "../config.ts";
 import {
   containerComputerAction,
   containerComputerExists,
@@ -60,7 +62,7 @@ export interface ComputerRouteDeps {
   localVmIdleFor(target: LocalVmTarget): Pick<ComputerIdleTimer, "touch" | "cancel">;
   localVmTargetForBot(botId: string): LocalVmTarget;
   localVmTargetForStatus(botId: string, threadId?: string): LocalVmTarget;
-  localVmPayload(target: LocalVmTarget, auth: RequestAuth): Promise<unknown>;
+  localVmPayload(target: LocalVmTarget, auth: RequestAuth, bot?: BotRecord): Promise<unknown>;
   localVmInventoryPayload(): Promise<unknown>;
   existingPerBotLocalVmCount(runtime: Runtime): Promise<number>;
   teamComputersPayload(): Promise<unknown>;
@@ -345,16 +347,16 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
     if (method === "POST" && path === "/api/local-computer/screenshot") {
       localVmIdleFor(SHARED_LOCAL_VM_TARGET).touch();
       res.setHeader("cache-control", "private, no-store");
-      return json(res, 200, {
-        image: await containerComputerScreenshot(undefined, undefined, SHARED_LOCAL_VM_TARGET),
-      });
+      const image = await containerComputerScreenshot(undefined, undefined, SHARED_LOCAL_VM_TARGET)
+        .catch((err) => neoVmScreenshot(cfg, DATA_DIR).catch(() => { throw err; }));
+      return json(res, 200, { image });
     }
 
     m = path.match(/^\/api\/bots\/([\w-]+)\/local-computer$/);
     if (m && method === "GET") {
       const bot = computerPreviewBot(m[1], url);
       if (!bot) return json(res, 404, { error: "no such bot" });
-      return json(res, 200, await localVmPayload(localVmTargetForStatus(bot.id, bot.threadId), auth));
+      return json(res, 200, await localVmPayload(localVmTargetForStatus(bot.id, bot.threadId), auth, bot));
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/local-computer\/(run|start|stop|remove)$/);
     if (m && method === "POST") {
@@ -427,9 +429,9 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
       const target = localVmTargetForStatus(bot.id, url.searchParams.has("threadId") ? bot.threadId : undefined);
       localVmIdleFor(target).touch();
       res.setHeader("cache-control", "private, no-store");
-      return json(res, 200, {
-        image: await containerComputerScreenshot(undefined, undefined, target),
-      });
+      const image = await containerComputerScreenshot(undefined, undefined, target)
+        .catch((err) => neoVmScreenshot(cfg, DATA_DIR, bot).catch(() => { throw err; }));
+      return json(res, 200, { image });
     }
     // Granted only to the control lease holding this bot's computer, and only with admin scope. The loopback companion
     // sidecar gets the noVNC address (VNC password included); a directly paired phone gets only the lease-bound proxy.
@@ -444,27 +446,35 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
       if (threadId && await computerPreviewSurface(bot, threadId) !== "vm") {
         return json(res, 409, { error: "This conversation is not using the Local VM" });
       }
-      if (localVmMode(cfg) === "pool") {
+      const neoLive = await neoVmScreenLive(cfg, DATA_DIR, bot);
+      if (localVmMode(cfg) === "pool" && !neoLive) {
         return json(res, 409, { error: "Phone control is not available in pool mode. Select shared or per-bot mode in Settings → Desktops & browser." });
       }
       const lease = controlLeaseIdSchema.safeParse(url.searchParams.get("controlLeaseId") ?? undefined);
       if (!lease.success) return json(res, 400, { error: "controlLeaseId is required" });
-      if (!store.bot(bot.id) || !computerControl.beat(localVmLeaseKey(bot, threadId), lease.data)) {
+      const neoScreen = neoLive ? resolveNeoVmScreen(cfg, DATA_DIR, bot) : null;
+      const holdsVm = computerControl.beat(localVmLeaseKey(bot, threadId), lease.data)
+        || (neoScreen !== null && computerControl.beat(bot.id, lease.data));
+      if (!store.bot(bot.id) || !holdsVm) {
         return json(res, 409, { error: "Take control of this computer first" });
       }
       const target = localVmTargetForStatus(bot.id, threadId);
-      const status = await containerComputerStatus(undefined, undefined, target);
+      const status = await neoLocalVmFallback(await containerComputerStatus(undefined, undefined, target), cfg, DATA_DIR, bot);
       if (!status.ready || !status.managed || status.container !== "running" || status.network !== "loopback"
         || !status.viewer_url) {
         return json(res, 409, { error: status.problem ?? "The Local VM is not ready" });
       }
       localVmIdleFor(target).touch();
       res.setHeader("cache-control", "private, no-store");
-      if (auth.kind === "loopback") return json(res, 200, { joinUrl: status.viewer_url });
+      if (auth.kind === "loopback" && status.target_key !== "neo") return json(res, 200, { joinUrl: status.viewer_url });
       const socket = new URLSearchParams({ botId: bot.id, ...(threadId ? { threadId } : {}), controlLeaseId: lease.data });
+      const viewerId = status.target_key === "neo" ? "local/neo" : viewerTargetId(target);
+      const password = status.target_key === "neo"
+        ? (neoScreen?.password ?? null)
+        : new URLSearchParams(new URL(status.viewer_url).hash.slice(1)).get("password");
       return json(res, 200, {
-        socketPath: `api/desktop-viewer/${viewerTargetId(target)}/websockify?${socket}`,
-        password: new URLSearchParams(new URL(status.viewer_url).hash.slice(1)).get("password"),
+        socketPath: `api/desktop-viewer/${viewerId}/websockify?${socket}`,
+        password,
       });
     }
     return PASS;
