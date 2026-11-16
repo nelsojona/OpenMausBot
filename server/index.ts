@@ -2353,7 +2353,7 @@ const {
   browserRuntime, browserLive, usedBrowserSessions, browserSweep, temporaryBrowserSessions,
   currentBrowserSession, forgetTemporaryBrowser, myChromeAvailable, usesMyChrome, lentChromeSummary, browserSessionSpec, browserIntegration,
   browserReady, currentBrowserSpec, loginInput, browserSystemPrompt, closeBrowser, browserEngineSwitched, eraseDeletedBrowser, engineSummary, browserSessionsOf, signedInSitesTarget, uploadPaths, eraseAudienceBrowsers, browserOwners, closeCapBrowsers,
-} = createBrowserHost({ cfg, language: appLanguage, store: () => store, turnResources, activeInternalGenerationByThread, mintInternalCapability, DESKTOP_MANAGED, CLOUD_HOME, HOSTED_WORKSPACE, PORT, engineMemory, audienceOf: teamHost.browserAudience, ...(CLOUD_TEAM ? { browserBox: (fd: number, ro: readonly string[]) => botBox.browserBox(fd, ro) } : {}), lendRefusal: (turn) => cloudLendingRefusal({ botId: store.botByThread(turn.threadId)?.id ?? "", threadId: turn.threadId, generation: turn.generation }), device: () => deviceLinks.route(CLOUD_HOME_LENDER) ?? sharedComputers.internetAway(CLOUD_HOME_LENDER) ?? { unshared: true as const }, lentChrome: CLOUD_PERSONAL ? { route: () => deviceLinks.chromeRoute(CLOUD_HOME_LENDER), lender: () => sharedComputers.chromeLender(CLOUD_HOME_LENDER) } : undefined });
+} = createBrowserHost({ cfg, language: appLanguage, store: () => store, onCloudUsed: (owner) => cloudComputerPower.used(owner), turnResources, activeInternalGenerationByThread, mintInternalCapability, DESKTOP_MANAGED, CLOUD_HOME, HOSTED_WORKSPACE, PORT, engineMemory, audienceOf: teamHost.browserAudience, ...(CLOUD_TEAM ? { browserBox: (fd: number, ro: readonly string[]) => botBox.browserBox(fd, ro) } : {}), lendRefusal: (turn) => cloudLendingRefusal({ botId: store.botByThread(turn.threadId)?.id ?? "", threadId: turn.threadId, generation: turn.generation }), device: () => deviceLinks.route(CLOUD_HOME_LENDER) ?? sharedComputers.internetAway(CLOUD_HOME_LENDER) ?? { unshared: true as const }, lentChrome: CLOUD_PERSONAL ? { route: () => deviceLinks.chromeRoute(CLOUD_HOME_LENDER), lender: () => sharedComputers.chromeLender(CLOUD_HOME_LENDER) } : undefined });
 
 const dataSheets = new DataSheetRegistry({
   broadcast: (frame) => broadcast({ ...frame }),
@@ -2387,7 +2387,7 @@ const emailIntegration = (bot: BotRecord, turn: { threadId: string; generation: 
 
 let browserEngineInstall: Promise<void> | null = null;
 let browserEngineInstallError: string | null = null;
-export function browserEngineSummary(): { kind: "engine" | "unavailable"; reason?: string; installable?: boolean; version?: string; chrome?: string; noChrome?: true; installing?: boolean; installError?: string; myChrome: boolean; proxyConfigured?: boolean; proxySaved?: boolean; myChromeOn?: { name: string; device: "PC" | "Mac" | "computer"; online: boolean }; myChromeLendable?: true; serverSites?: boolean; engine: "agent-browser" | "chrome"; desktopView?: true } {
+export function browserEngineSummary(): { kind: "engine" | "unavailable"; reason?: string; installable?: boolean; version?: string; chrome?: string; noChrome?: true; installing?: boolean; installError?: string; myChrome: boolean; proxyConfigured?: boolean; proxySaved?: boolean; myChromeOn?: { name: string; device: "PC" | "Mac" | "computer"; online: boolean }; myChromeLendable?: true; serverSites?: boolean; engine: "agent-browser" | "chrome" | "browseros-neo"; pane?: true; cookieImport?: true; desktopView?: true } {
   const status = browserEngineStatus();
   const progress = { myChrome: myChromeAvailable(), ...lentChromeSummary(), ...(browserEngineInstall ? { installing: true } : {}), ...(browserEngineInstallError ? { installError: browserEngineInstallError } : {}) };
   return engineSummary(status.kind === "ready"
@@ -6038,7 +6038,7 @@ async function selectableComputers(bot: BotRecord) {
 
 function browserSelectable(bot: BotRecord): boolean {
   return registry.get(bot.modelSelection.instanceId)?.adapter.capabilities.browserMcp === true && builtInBrowserEnabled(cfg)
-    && bot.browser !== false && bot.computer !== "off" && browserReady(bot.browserProfile);
+    && bot.browser !== false && bot.computer !== "off" && browserReady(bot.browserProfile, bot.id);
 }
 
 /** Continues this request on `surface` once its turn ends; false when this turn cannot switch, or already switches elsewhere. */
@@ -11463,7 +11463,7 @@ async function saveLoginFromCard(botId: string, threadId: string, messageId: str
 
 /** Saved logins appear by site and username only. */
 function browserPromptFor(bot: { id: string; browserProfile?: string }, agentsMounted: boolean): string {
-  return browserSystemPrompt(bot.browserProfile) + (agentsMounted ? savedLoginsPrompt(botLogins.sitesFor(bot.id)) : "");
+  return browserSystemPrompt(bot.browserProfile, bot.id) + (agentsMounted ? savedLoginsPrompt(botLogins.sitesFor(bot.id)) : "");
 }
 
 /** Null while the browser engine is not installed. */
