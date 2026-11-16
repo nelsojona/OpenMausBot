@@ -3,9 +3,9 @@ import type { ContainerComputerStatus, LocalVmTarget } from "./container-compute
 import type { RequestAuth } from "./request-auth.ts";
 import { desktopViewerUrl, type DesktopTarget } from "./routes/desktop-viewer.ts";
 
-/** Native owner windows keep the existing direct viewer and cookie isolation. */
+/** Native owner windows keep the existing direct viewer and cookie isolation; raw RFB targets always use `/desktop-viewer`. */
 export function localVmViewerStatus<T extends { target_key: string; viewer_url: string }>(status: T, auth: RequestAuth): T {
-  return auth.kind === "loopback" ? status : {
+  return auth.kind === "loopback" && status.target_key !== "neo" ? status : {
     ...status,
     viewer_url: status.viewer_url ? desktopViewerUrl(viewerTargetId({ key: status.target_key })) : "",
   };
