@@ -162,6 +162,12 @@ copyFileSync(join(server, "model-catalog", "models-dev.snapshot.json"), catalogS
 // The starter apps' pages (server/local-apps/starters.ts), read from local-apps/starters/ beside the bundle.
 cpSync(join(server, "local-apps", "starters"), join(root, "dist-server", "local-apps", "starters"), { recursive: true });
 
+const neoGuestDest = join(root, "dist-server", "browser", "neo");
+mkdirSync(neoGuestDest, { recursive: true });
+for (const fileName of ["omb-browser-proxy.mjs", "omb-browser.pac"]) {
+  copyFileSync(join(root, "deploy", "computer-vm", "guest", fileName), join(neoGuestDest, fileName));
+}
+
 // Pi loads this through its own jiti and supplies TypeBox. Inline our local
 // policy module so the extension also works without the source checkout;
 // keep the Pi-owned dependency external and retain the .ts loading contract.
