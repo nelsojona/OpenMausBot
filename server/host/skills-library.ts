@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
 import { skillCalls, skillCommandTurnText } from "../../shared/skill-command.ts";
@@ -99,18 +99,6 @@ export function createSkillsLibraryHost(deps: SkillsLibraryHostDeps) {
         skill.manifest.triggerTerms.includes(`/${skill.manifest.id}`) &&
         skill.manifest.requiredCapabilities.every((cap) => cap === "skillAuthoring" && skillAuthoringEnabled(cfg)),
     );
-  const bundledSkillListing = (skill: BundledSkill): SkillListing & { origin: "bundled" } => ({
-    name: skill.manifest.id,
-    description: skill.manifest.description,
-    enabled: true,
-    editable: false,
-    source: "bundled",
-    sha256: createHash("sha256").update(skill.instructions).digest("hex"),
-    importedAt: "",
-    warnings: [],
-    skippedFiles: [],
-    origin: "bundled",
-  });
   const listBotSkills = (bot: BotRecord, threadId = bot.threadId): SkillListing[] => {
     const own = ownSkills(bot);
     const listed = [...own, ...importedSkillListings(bot.id, new Set(own.map((skill) => skill.name)), aboutBot(bot))];
@@ -118,11 +106,9 @@ export function createSkillsLibraryHost(deps: SkillsLibraryHostDeps) {
     const natives = nativesFor(bot, threadId).filter((skill) => !names.has(skill.name));
     for (const skill of natives) names.add(skill.name);
     const project = projectFor(bot, threadId).filter((skill) => !names.has(skill.name));
-    for (const skill of project) names.add(skill.name);
-    const bundled = bundledSlash().filter((skill) => !names.has(skill.manifest.id));
     return [
       ...listed, ...natives.map((skill) => nativeSkillListing(skill, isNativeSkillEnabled(bot.id, skill.name))),
-      ...project.map(projectSkillListing), ...bundled.map(bundledSkillListing),
+      ...project.map(projectSkillListing),
     ];
   };
   const readBotSkillFile = (bot: BotRecord, name: string): string | null => {
@@ -134,9 +120,7 @@ export function createSkillsLibraryHost(deps: SkillsLibraryHostDeps) {
     if (skillsLibraryEnabled(cfg) && listLibrarySkills().some((skill) => skill.name === name && (bot.assignedSkills?.includes(name) || (skill.everyBot && !librarySkillOptOuts(bot.id).has(name))))) return readLibrarySkillFile(name);
     if (readImportedSkills()[name]) return readImportedSkillFile(name);
     const native = nativesFor(bot).find((skill) => skill.name === name) ?? projectFor(bot, bot.threadId).find((skill) => skill.name === name);
-    if (native) return readNativeSkillFile(native);
-    const bundled = bundledSlash().find((skill) => skill.manifest.id === name);
-    return bundled ? `${bundled.instructions}\n` : null;
+    return native ? readNativeSkillFile(native) : null;
   };
   /** The files beside the SKILL.md readBotSkillFile reads, from the same copy: none for a skill shared from this
    * computer, null when they changed since they came in. */
