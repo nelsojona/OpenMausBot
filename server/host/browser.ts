@@ -40,8 +40,10 @@ import { LAUNCHER_SECCOMP_FD, browserLanguage, type LauncherBox } from "../brows
 import type { HostKind } from "../browser/chrome/flags.ts";
 import { browserEngineKind, type BrowserEngineKind } from "../browser/config.ts";
 import { parseSocks5Proxy } from "../browser/egress/policy.ts";
-import { ChromeEngine, chromeTarget, LiveRouter, profileKey, RuntimeRouter } from "../browser/engines.ts";
-import { CHROME_BROWSER_SYSTEM_PROMPT } from "../browser/prompt.ts";
+import { ChromeEngine, chromeTarget, LiveRouter, neoTarget, profileKey, RuntimeRouter } from "../browser/engines.ts";
+import { neoFeatureActive, resolveNeoRoute } from "../browser/neo/config.ts";
+import { NeoBrowserEngine } from "../browser/neo/engine.ts";
+import { CHROME_BROWSER_SYSTEM_PROMPT, NEO_BROWSER_SYSTEM_PROMPT } from "../browser/prompt.ts";
 import { passkeyAnnotation } from "../browser/passkey-notice.ts";
 import { LentChromeDoors, lentChromeGuidance, type ChromeLender } from "../browser/lent-chrome.ts";
 import type { ChromeRoute } from "../device-links.ts";
@@ -56,6 +58,8 @@ import type { TurnOwner, TurnResources } from "../turn-resources.ts";
 
 export interface BrowserHostDeps {
   cfg: AppConfig;
+  dataDir?: string;
+  onCloudUsed?(owner: string): void;
   /** Current application language for every built-in browser launch. */
   language?(): string | undefined;
   /** The store is built after this host, so it is read when used. */
@@ -107,6 +111,7 @@ const BOT_SESSION = /^bot-[A-Za-z0-9_.-]+$/;
 
 export function createBrowserHost(deps: BrowserHostDeps) {
   const { cfg, turnResources, activeInternalGenerationByThread, mintInternalCapability, DESKTOP_MANAGED, CLOUD_HOME, PORT } = deps;
+  const dataDir = deps.dataDir ?? DATA_DIR;
   chromeLauncher.setLanguageProvider(deps.language);
   const store: Pick<Store, "bots" | "bot" | "botByThread"> = { get bots() { return deps.store().bots; }, bot: (id: string) => deps.store().bot(id),
     botByThread: (threadId: string) => deps.store().botByThread(threadId) };
@@ -149,7 +154,7 @@ export function createBrowserHost(deps: BrowserHostDeps) {
   const host: HostKind = DESKTOP_MANAGED ? "desktop" : CLOUD_HOME || existsSync("/.dockerenv") ? "container" : "server";
   const idleMs = () => browserIdleMs(cfg, { cloudHome: Boolean(CLOUD_HOME) });
   const chromeEngine = new ChromeEngine({
-    dataDir: DATA_DIR,
+    dataDir,
     host,
     egressPort: (key) => browserEgress.open(key),
     egressNotice: (key) => browserEgress.takeNotice(key),
@@ -157,6 +162,12 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     language: deps.language,
     held: (session) => !turnResources.free(`browser:${session}`),
     log: (line) => console.warn(line),
+  });
+  const neoEngine = new NeoBrowserEngine({
+    cfg,
+    dataDir,
+    botOf: (botId) => store.bot(botId),
+    onCloudUsed: deps.onCloudUsed,
   });
   const lendRefusal = deps.lendRefusal ?? ((): LendRefusal => "unproven");
   const mayLend = (turn: TurnOwner) => lendRefusal(turn) === null;
@@ -200,6 +211,7 @@ export function createBrowserHost(deps: BrowserHostDeps) {
   // A tool call that would open Reddit from MausBot Cloud is refused before it reaches the browser. My Chrome is the
   // person's own, outside the egress gate too; on My Cloud a call that can't reach it now says why instead.
   const browserRuntime = new RuntimeRouter(agentBrowserRuntime, chromeEngine, {
+    neo: neoEngine,
     refusal: (_session, spec, params) => (attachesToChrome(spec.env) ? null : browserEgress.callRefusal(params)),
     // The opt-in engine's browsers wait for the server's room here; agent-browser's wait in browserRoom above. The
     // person's own Chrome runs outside this server, and a close frees room.
@@ -235,9 +247,9 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     chromeRefusals.set(session, refused);
     doors.drop(session);
   });
-  const browserLive = new LiveRouter(agentBrowserLive, chromeEngine);
+  const browserLive = new LiveRouter(agentBrowserLive, chromeEngine, neoEngine);
   const usedBrowserSessions = new Map<string, Spec>();
-  const audiences = new AudienceBrowsers(join(DATA_DIR, "browser", "audiences.json"));
+  const audiences = new AudienceBrowsers(join(dataDir, "browser", "audiences.json"));
   const browserAudience = (threadId: string | undefined): Audience => (threadId && deps.audienceOf ? deps.audienceOf(threadId) : "team");
   const device = deps.device && lentDevice(deps.device, (session) => turnResources.holder(`browser:${session}`), mayLend);
   const egressHost = DESKTOP_MANAGED ? "desktop" : CLOUD_HOME ? "cloud" : "server";
@@ -262,7 +274,7 @@ export function createBrowserHost(deps: BrowserHostDeps) {
   // A browser that has ended keeps no loopback listener: its gate opens again with it, on the same port where it can, and
   // the session's launch settings are worked out again then.
   const releaseGates = () => releaseEndedGates({ sessions: () => browserEgress.sessions(), release: async (session) => { usedBrowserSessions.delete(session); await browserEgress.release(session); },
-    env: (session) => { const spec = usedBrowserSessions.get(session); return spec && !chromeTarget(session, spec) ? spec.env : null; },
+    env: (session) => { const spec = usedBrowserSessions.get(session); return spec && !chromeTarget(session, spec) && !neoTarget(session, spec) ? spec.env : null; },
     running: (session) => browserRunning(session, usedBrowserSessions.get(session)),
     inUse: (session) => !turnResources.free(`browser:${session}`) || agentBrowserRuntime.working(session) });
   let gateTimer: ReturnType<typeof setInterval> | undefined;
@@ -274,12 +286,12 @@ export function createBrowserHost(deps: BrowserHostDeps) {
       chromeEngine.start({ inUse: browserEngineKind(cfg) === "chrome", prepare: builtInBrowserEnabled(cfg) });
       return browserSweep;
     },
-    closeAll: () => {
+    closeAll: async () => {
       clearInterval(gateTimer);
       doors?.close();
       doorUrls.clear();
       leftovers.clear();
-      return agentBrowserSweep.closeAll();
+      await Promise.all([neoEngine.closeAll(), agentBrowserSweep.closeAll()]);
     },
   };
   // The viewer and the agent must address the SAME temporary browser.
@@ -323,6 +335,10 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     temporaryBrowserSessions.delete(key);
     const spec = usedBrowserSessions.get(session);
     usedBrowserSessions.delete(session);
+    if (neoTarget(session, spec)) {
+      await neoEngine.close(session);
+      return;
+    }
     if (chromeTarget(session, spec)) {
       await chromeEngine.service.close(session);
       return;
@@ -368,9 +384,20 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     const target = profile && profile !== "guest" ? browserProfilePartitionTarget(cfg, profile) : null;
     return target?.profileId ?? profile;
   }
+  /** BrowserOS neo runs a bot's browser when Neo routing is active for it, except on a My Chrome profile. */
+  function onNeo(botId: string | undefined, profile: string | undefined): boolean {
+    if (usesMyChrome(browserProfileIdOf(profile))) return false;
+    const bot = botId ? (store.bot(botId) ?? { id: botId }) : null;
+    return resolveNeoRoute(bot, cfg, dataDir).kind !== "disabled";
+  }
   /** The new engine runs a bot's browser when the flag is on, except in the person's own Chrome. */
-  function onChrome(profile: string | undefined): boolean {
-    return browserEngineKind(cfg) === "chrome" && !usesMyChrome(browserProfileIdOf(profile));
+  function onChrome(profile: string | undefined, botId?: string): boolean {
+    return !onNeo(botId, profile) && browserEngineKind(cfg) === "chrome" && !usesMyChrome(browserProfileIdOf(profile));
+  }
+  function neoSpec(botId: string, profile: string | undefined, audience: Audience): { session: string; spec: ReturnType<NeoBrowserEngine["spec"]> } {
+    const suffix = noted(audience);
+    const session = sessionFor(botId, profile, suffix);
+    return { session, spec: neoEngine.spec(session, botId) };
   }
   function chromeSpec(botId: string, profile: string | undefined, audience: Audience): { session: string; spec: ReturnType<ChromeEngine["spec"]> } {
     const suffix = noted(audience);
@@ -378,9 +405,10 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     const target = profile && profile !== "guest" ? browserProfilePartitionTarget(cfg, profile) : null;
     return { session, spec: chromeEngine.spec(session, profileKey(botId + suffix, session, { guest: profile === "guest", partitionId: target ? target.partitionId + suffix : null })) };
   }
-  /** Chrome for the new engine, the installed agent-browser otherwise. */
-  function browserReady(profile: string | undefined): boolean {
-    return onChrome(profile) ? chromeEngine.summary().kind === "engine" : browserEngineStatus().kind === "ready";
+  /** BrowserOS neo when routed, Chrome for the new engine, or the installed agent-browser otherwise. */
+  function browserReady(profile: string | undefined, botId?: string): boolean {
+    if (onNeo(botId, profile)) return botId !== undefined ? true : neoEngine.summary().kind === "engine";
+    return onChrome(profile, botId) ? chromeEngine.summary().kind === "engine" : browserEngineStatus().kind === "ready";
   }
   function turnIntegration(botId: string, session: string, turn: { threadId: string; generation: string }) {
     const token = mintInternalCapability({ botId, ...turn, browserSession: session,
@@ -395,7 +423,12 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     const profileTarget = profile && profile !== "guest" ? browserProfilePartitionTarget(cfg, profile) : null;
     const partitionId = profile === "guest" ? "guest" : (profileTarget?.partitionId ?? "");
     const browserProfileId = profileTarget?.profileId ?? profile;
-    if (onChrome(profile)) {
+    if (onNeo(botId, profile)) {
+      const { session, spec } = neoSpec(botId, profile, audience);
+      usedBrowserSessions.set(session, spec);
+      return { profile: partitionId, session, spec, integration: turn ? turnIntegration(botId, session, turn) : spec };
+    }
+    if (onChrome(profile, botId)) {
       const { session, spec } = chromeSpec(botId, profile, audience);
       usedBrowserSessions.set(session, spec);
       return { profile: partitionId, session, spec, integration: turn ? turnIntegration(botId, session, turn) : spec };
@@ -420,7 +453,8 @@ export function createBrowserHost(deps: BrowserHostDeps) {
   }
   /** A bot's browser as it runs or would run now, without preparing it; null while its engine is not installed. */
   async function currentBrowserSpec(botId: string, profile: string | undefined, audience: Audience = "team"): Promise<{ session: string; spec: Spec } | null> {
-    if (onChrome(profile)) return chromeSpec(botId, profile, audience);
+    if (onNeo(botId, profile)) return neoSpec(botId, profile, audience);
+    if (onChrome(profile, botId)) return chromeSpec(botId, profile, audience);
     const engine = browserEngineStatus();
     if (engine.kind !== "ready") return null;
     const session = currentBrowserSession(botId, profile, audience);
@@ -432,21 +466,29 @@ export function createBrowserHost(deps: BrowserHostDeps) {
   }
   /** fill_login's reads and typing, on whichever engine runs the session. */
   function loginInput(session: string, spec: Spec, env: NodeJS.ProcessEnv): Pick<FillLoginDeps, "engine" | "insertText" | "press" | "click"> {
+    const neo = neoTarget(session, spec);
+    if (neo) return neoEngine.loginDeps(neo);
     if (chromeTarget(session, spec)) {
       const deps = chromeEngine.loginDeps(session);
       if (deps) return deps;
     }
     return { engine: (args) => inRunningBrowser(spec.command, env, args), ...relayInput(spec, session) };
   }
-  function browserSystemPrompt(profile: string | undefined): string {
-    return onChrome(profile) ? CHROME_BROWSER_SYSTEM_PROMPT : BUILT_IN_BROWSER_SYSTEM_PROMPT;
+  function browserSystemPrompt(profile: string | undefined, botId?: string): string {
+    if (onNeo(botId, profile)) return NEO_BROWSER_SYSTEM_PROMPT;
+    return onChrome(profile, botId) ? CHROME_BROWSER_SYSTEM_PROMPT : BUILT_IN_BROWSER_SYSTEM_PROMPT;
   }
   /** The signed-in sites list reads agent-browser's saved state, which My Chrome and the new browser do not keep. */
-  function signedInSitesRefusal(profile: string | undefined): string | null {
+  function signedInSitesRefusal(profile: string | undefined, botId?: string): string | null {
     if (usesMyChrome(profile)) return "This profile uses your own Chrome. Sign in and out of sites there.";
-    return onChrome(profile) ? "The new browser does not list signed-in sites yet. Sign out in the browser itself, or turn off New browser in Settings." : null;
+    if (onNeo(botId, profile)) return "BrowserOS neo keeps its own sign-ins inside the browser environment. Sign in or out in the Browser or Computer panel.";
+    return onChrome(profile, botId) ? "The new browser does not list signed-in sites yet. Sign out in the browser itself, or turn off New browser in Settings." : null;
   }
   async function closeBrowser(session: string, spec: Spec): Promise<boolean> {
+    if (neoTarget(session, spec)) {
+      await neoEngine.close(session);
+      return true;
+    }
     if (!chromeTarget(session, spec)) return closeBrowserSession(spec.command, browserRuntimeEnv({ ...spec.env, AGENT_BROWSER_SESSION: session }));
     await chromeEngine.service.close(session);
     return true;
@@ -461,10 +503,12 @@ export function createBrowserHost(deps: BrowserHostDeps) {
         if (!closed) console.warn(`browser ${session}: could not close it after the browser engine changed`);
       });
     }
+    if (!neoFeatureActive(cfg, dataDir)) void neoEngine.closeAll().catch(() => undefined);
     if (browserEngineKind(cfg) !== "chrome") void chromeEngine.service.closeAll().catch(() => undefined);
     chromeEngine.start({ inUse: browserEngineKind(cfg) === "chrome", prepare: builtInBrowserEnabled(cfg) });
   }
   function browserRunning(session: string, spec: Spec | undefined): boolean {
+    if (neoTarget(session, spec)) return neoEngine.runs(session);
     if (chromeTarget(session, spec)) return chromeEngine.service.runs(session);
     return existsSync(browserDaemonFile(browserRuntimeEnv({ ...spec?.env, AGENT_BROWSER_SESSION: session }), ".pid"));
   }
@@ -559,15 +603,14 @@ export function createBrowserHost(deps: BrowserHostDeps) {
   /** Chrome receives private copies; a boxed agent-browser reads them from its own profile's folder. */
   function uploadPaths(files: ReadonlyArray<{ file: string; name: string | null }>, session: string, spec: Spec): Promise<string[]> {
     const chrome = chromeTarget(session, spec);
-    const folder = boxed && !chrome ? join(browserProfileDirectory(session), "omb-uploads") : join(DATA_DIR, "browser-uploads");
+    const folder = boxed && !chrome ? join(browserProfileDirectory(session), "omb-uploads") : join(dataDir, "browser-uploads");
     return namedUploadPaths(files, folder, Date.now(), { everyFile: boxed || Boolean(chrome) });
   }
   /** The saved sign-ins of a bot's or a shared profile's browser, for one audience. */
   async function signedInSitesTarget(which: BrowserSitesRef, audience: Audience = "team"): Promise<BrowserSitesTarget | { status: number; error: string }> {
-    const engine = browserEngineStatus();
-    if (engine.kind !== "ready") return { status: 409, error: engine.reason };
     let session: string;
     let profile: string | undefined;
+    const botId = "bot" in which ? which.bot : undefined;
     if ("profile" in which) {
       const target = browserProfilePartitionTarget(cfg, which.profile);
       if (!target) return { status: 404, error: "This browser profile was removed." };
@@ -580,19 +623,26 @@ export function createBrowserHost(deps: BrowserHostDeps) {
       session = currentBrowserSession(bot.id, bot.browserProfile, audience);
       profile = bot.browserProfile;
     }
-    const refusal = signedInSitesRefusal(profile);
+    const refusal = signedInSitesRefusal(profile, botId);
     if (refusal) return { status: 409, error: refusal };
+    const engine = browserEngineStatus();
+    if (engine.kind !== "ready") return { status: 409, error: engine.reason };
     return { binaryPath: engine.binaryPath, session, env: browserSessionSpec(engine.binaryPath, session, profile, await browserEgress.open(session)).env, encryptionKey: browserEngineEncryptionKey() };
   }
   /** What Settings shows of the engine that runs bots' browsers here; My Chrome stays on agent-browser. */
   function engineSummary<T extends { myChrome: boolean }>(agentBrowser: T): (T | (ReturnType<ChromeEngine["summary"]> & { myChrome: boolean })) & { engine: BrowserEngineKind; serverSites?: boolean; proxyConfigured?: boolean; proxySaved?: boolean } {
     const serverSites = sitesSwitch ? { serverSites: cfg.browserEngine?.egress?.localNetwork === true } : {};
-    const engine = browserEngineKind(cfg);
+    const engine: BrowserEngineKind = neoFeatureActive(cfg, dataDir) ? "browseros-neo" : browserEngineKind(cfg);
     const proxyValue = cfg.browserEngine?.egress?.proxy;
     const proxySaved = typeof proxyValue === "string" && proxyValue.trim().length > 0;
     const proxyConfigured = builtInBrowserEnabled(cfg) && !hostedServer && parseSocks5Proxy(proxyValue) !== null;
+    const base = engine === "browseros-neo"
+      ? { ...neoEngine.summary(), myChrome: agentBrowser.myChrome, ...lentChromeSummary(), engine }
+      : engine === "chrome"
+        ? { ...chromeEngine.summary(), myChrome: agentBrowser.myChrome, ...lentChromeSummary(), engine }
+        : { ...agentBrowser, engine };
     return {
-      ...(engine === "chrome" ? { ...chromeEngine.summary(), myChrome: agentBrowser.myChrome, ...lentChromeSummary(), engine } : { ...agentBrowser, engine }),
+      ...base,
       ...serverSites,
       ...(proxyConfigured ? { proxyConfigured: true } : {}),
       ...(proxySaved ? { proxySaved: true } : {}),
