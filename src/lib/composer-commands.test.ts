@@ -101,6 +101,16 @@ describe("composer slash commands", () => {
     expect(
       replaceComposerSlashTrigger("/sta", { query: "sta", start: 0, end: 4 }, `${rows[1]!.label} `),
     ).toEqual({ text: "/standup ", caret: 9 });
+
+    expect(skillSlashCommands([], false)).toEqual([]);
+    expect(skillSlashCommands([], true)).toEqual([
+      {
+        kind: "skill",
+        id: "browseros-neo",
+        label: "/browseros-neo",
+        description: "Run a browser task in BrowserOS neo, optionally on a chosen provider and model.",
+      },
+    ]);
   });
 
   it("reads only enabled, named skills from the skills listing", () => {
