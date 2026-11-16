@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenMausBot browser proxy (narrowed page contract in front of BrowserOS neo)
+After=network.target
+
+[Service]
+Environment=OMB_BROWSER_PROXY_TOKEN_FILE=%h/.config/openmausbot/browser-proxy.token
+Environment=OMB_BROWSER_PROXY_LISTEN=0.0.0.0:7791
+Environment=OMB_BROWSER_PROXY_UPSTREAM=http://127.0.0.1:9010/mcp
+EnvironmentFile=-%h/.config/openmausbot/browser-proxy.env
+ExecStart=/usr/bin/node /opt/openmausbot/omb-browser-proxy.mjs
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target
