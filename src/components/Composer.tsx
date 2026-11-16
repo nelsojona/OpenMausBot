@@ -324,9 +324,9 @@ export function Composer({
       label: "/setup",
       description: t("composer.command.setupDesc"),
     }, { kind: "command", id: "burst", label: "/burst", description: t("composer.command.burstDesc") });
-    available.push(...skillSlashCommands(slashSkills));
+    available.push(...skillSlashCommands(slashSkills, state.config?.browserEngine?.engine === "browseros-neo"));
     return available.filter((command) => slashCommandMatches(command, slash.query));
-  }, [slash, dismissedSlashAt, group, bot, canLearn, state.instances, locale, slashSkills]);
+  }, [slash, dismissedSlashAt, group, bot, canLearn, state.instances, state.config?.browserEngine?.engine, locale, slashSkills]);
   const commandPickerOpen = commandCandidates.length > 0;
 
   const mention = mentionQueryAt(text, caret); const teammates = useTeammates(); const viewer = useViewerEmail();
