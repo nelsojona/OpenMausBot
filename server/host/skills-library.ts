@@ -1,10 +1,10 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
 
 import { skillCalls, skillCommandTurnText } from "../../shared/skill-command.ts";
 import { isSkillSwitchAction, type SkillRequestCardData, type SkillShareRecord } from "../../shared/skill-request.ts";
 import { narrowestAudience, intersectAudience } from "../bot-visibility.ts";
-import { DATA_DIR, type AppConfig } from "../config.ts";
+import { DATA_DIR, skillAuthoringEnabled, type AppConfig } from "../config.ts";
 import { appendDecision } from "../decision-log.ts";
 import { UNDO_STALE, type DirectApply } from "../direct-apply.ts";
 import {
@@ -15,7 +15,7 @@ import { isNativeSkillEnabled } from "../native-skill-choices.ts";
 import { nativeSkillListing, nativeSkills, projectSkillListing, projectSkills, projectSkillsPrompt, readNativeSkillFile, type NativeSkill } from "../native-skills.ts";
 import { redactSecretsInText } from "../redact.ts";
 import { readSectionContext } from "../section-context.ts";
-import { librarySkillOptOuts, listLibrarySkills, readLibrarySkillFile, readSkillLibraryIndex, skillsLibraryEnabled } from "../skill-library.ts";
+import { librarySkillOptOuts, listLibrarySkills, readLibrarySkillFile, readSkillLibraryIndex, skillsLibraryEnabled, type BundledSkill } from "../skill-library.ts";
 import { librarySkillFiles, ownSkillFiles, type StoredSkillFiles } from "../skill-side-files.ts";
 import {
   conversationAssignedSkills,
@@ -60,6 +60,8 @@ export interface SkillsLibraryHostDeps {
   engineConfig?(instanceId: string): { config?: unknown; environment?: Record<string, string> } | undefined;
   /** The engine instance a bot's new turns run on, for listings made outside a turn. */
   instanceOf?(instanceId: string): TurnInstance | undefined;
+  /** Bundled slash skills (`manifest.triggerTerms` includes `/<id>`) offered in the `/` menu. */
+  bundledSlashSkills?(): readonly BundledSkill[];
 }
 
 /** The engine instance a turn runs on. */
@@ -90,6 +92,25 @@ export function createSkillsLibraryHost(deps: SkillsLibraryHostDeps) {
     const live = store.bot(bot.id) ?? bot;
     return [live.name, live.description, live.soul, live.section, readSectionContext(live.section)?.text].filter(Boolean).join("\n");
   };
+  const bundledSlash = (): readonly BundledSkill[] =>
+    (deps.bundledSlashSkills?.() ?? []).filter(
+      (skill) =>
+        skill.manifest.defaultEnabled &&
+        skill.manifest.triggerTerms.includes(`/${skill.manifest.id}`) &&
+        skill.manifest.requiredCapabilities.every((cap) => cap === "skillAuthoring" && skillAuthoringEnabled(cfg)),
+    );
+  const bundledSkillListing = (skill: BundledSkill): SkillListing & { origin: "bundled" } => ({
+    name: skill.manifest.id,
+    description: skill.manifest.description,
+    enabled: true,
+    editable: false,
+    source: "bundled",
+    sha256: createHash("sha256").update(skill.instructions).digest("hex"),
+    importedAt: "",
+    warnings: [],
+    skippedFiles: [],
+    origin: "bundled",
+  });
   const listBotSkills = (bot: BotRecord, threadId = bot.threadId): SkillListing[] => {
     const own = ownSkills(bot);
     const listed = [...own, ...importedSkillListings(bot.id, new Set(own.map((skill) => skill.name)), aboutBot(bot))];
@@ -97,9 +118,11 @@ export function createSkillsLibraryHost(deps: SkillsLibraryHostDeps) {
     const natives = nativesFor(bot, threadId).filter((skill) => !names.has(skill.name));
     for (const skill of natives) names.add(skill.name);
     const project = projectFor(bot, threadId).filter((skill) => !names.has(skill.name));
+    for (const skill of project) names.add(skill.name);
+    const bundled = bundledSlash().filter((skill) => !names.has(skill.manifest.id));
     return [
       ...listed, ...natives.map((skill) => nativeSkillListing(skill, isNativeSkillEnabled(bot.id, skill.name))),
-      ...project.map(projectSkillListing),
+      ...project.map(projectSkillListing), ...bundled.map(bundledSkillListing),
     ];
   };
   const readBotSkillFile = (bot: BotRecord, name: string): string | null => {
@@ -111,7 +134,9 @@ export function createSkillsLibraryHost(deps: SkillsLibraryHostDeps) {
     if (skillsLibraryEnabled(cfg) && listLibrarySkills().some((skill) => skill.name === name && (bot.assignedSkills?.includes(name) || (skill.everyBot && !librarySkillOptOuts(bot.id).has(name))))) return readLibrarySkillFile(name);
     if (readImportedSkills()[name]) return readImportedSkillFile(name);
     const native = nativesFor(bot).find((skill) => skill.name === name) ?? projectFor(bot, bot.threadId).find((skill) => skill.name === name);
-    return native ? readNativeSkillFile(native) : null;
+    if (native) return readNativeSkillFile(native);
+    const bundled = bundledSlash().find((skill) => skill.manifest.id === name);
+    return bundled ? `${bundled.instructions}\n` : null;
   };
   /** The files beside the SKILL.md readBotSkillFile reads, from the same copy: none for a skill shared from this
    * computer, null when they changed since they came in. */
@@ -350,6 +375,14 @@ export function createSkillsLibraryHost(deps: SkillsLibraryHostDeps) {
         add(nativesFor(bot, threadId, instance, cwd).filter((skill) => !switched.has(skill.name) && isNativeSkillEnabled(bot.id, skill.name)));
       }
       if (files.size < mentioned.length) add(projectInUse(bot, threadId, cwd, instance, assigned).filter((skill) => !skill.modelOnly));
+      if (files.size < mentioned.length && engine && supportsWorkspaceFiles(engine.driverKind)) {
+        add(bundledSlash().map((skill) => ({
+          name: skill.manifest.id,
+          description: skill.manifest.description,
+          folder: skill.directory,
+          file: join(skill.directory, "SKILL.md"),
+        })));
+      }
       return skillCommandTurnText(text, files, typed, ownStart);
     },
 

@@ -1,0 +1,15 @@
+{
+  "id": "browseros-neo",
+  "name": "BrowserOS neo",
+  "version": "1.0.0",
+  "description": "Run a browsing task in BrowserOS neo, optionally delegating to a chosen AI provider and model.",
+  "defaultEnabled": true,
+  "triggerTerms": [
+    "/browseros-neo",
+    "browseros-neo",
+    "browseros neo",
+    "neobrowser",
+    "neo browser"
+  ],
+  "requiredCapabilities": []
+}
