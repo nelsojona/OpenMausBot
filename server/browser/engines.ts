@@ -24,12 +24,14 @@ import type { PaneBackend } from "./pane/backend.ts";
 import type { CookieSink } from "./cookies/importer.ts";
 import { cdpSink } from "./cookies/sinks.ts";
 import type { Download } from "./cdp/downloads.ts";
+import { NEO_ENGINE, neoTarget, type NeoBrowserEngine } from "./neo/engine.ts";
 import { BrowserService, type BrowserTarget } from "./service.ts";
 import { LiveV1 } from "./viewers/live-v1.ts";
 import { StreamV2, type StreamRequest } from "./viewers/stream-v2.ts";
 
 /** A spec's command when the new engine runs the session; its one argument is the profile key. */
 export const CHROME_ENGINE = "omb-cdp";
+export { NEO_ENGINE, neoTarget };
 
 type Spec = Pick<BrowserSpawnSpec, "command" | "env"> & { args?: readonly string[] };
 
@@ -243,6 +245,7 @@ export class ChromeEngine {
 }
 
 export interface RuntimeRouterOptions {
+  neo?: NeoBrowserEngine;
   /** What a tool call is told instead of reaching either engine, or null to run it. */
   refusal?(session: string, spec: BrowserSpawnSpec, params: unknown): string | null;
   /** Asked next, before an opt-in engine's tool call that may open the session's browser: what it is told while the server
@@ -272,6 +275,7 @@ class ClaimRefused extends Error {}
 export class RuntimeRouter {
   readonly #old: BrowserRuntime;
   readonly #chrome: ChromeEngine;
+  readonly #neo: NeoBrowserEngine | undefined;
   readonly #refusal: RuntimeRouterOptions["refusal"];
   readonly #room: RuntimeRouterOptions["room"];
   readonly #afterClaim: RuntimeRouterOptions["afterClaim"];
@@ -283,6 +287,7 @@ export class RuntimeRouter {
     this.#log = options.inputLog ?? browserInputLog;
     this.#old = old;
     this.#chrome = chrome;
+    this.#neo = options.neo;
     this.#refusal = options.refusal;
     this.#room = options.room;
     this.#afterClaim = options.afterClaim;
@@ -291,10 +296,11 @@ export class RuntimeRouter {
   }
 
   async agentRpc(session: string, spec: BrowserSpawnSpec, method: "tools/list" | "tools/call", params: unknown, beforeDispatch?: () => void, ctx?: StepContext): Promise<unknown> {
-    const target = chromeTarget(session, spec);
+    const neo = this.#neo ? neoTarget(session, spec) : null;
+    const target = neo ? null : chromeTarget(session, spec);
     const action = method === "tools/call" ? pageAction((params as { name?: unknown } | null)?.name) : null;
     const failed = (reason: BotReason) => {
-      if (action) this.#log.record({ who: "bot", reason, what: action, engine: target ? "chrome" : "agent-browser", transport: "tools", session });
+      if (action && !neo) this.#log.record({ who: "bot", reason, what: action, engine: target ? "chrome" : "agent-browser", transport: "tools", session });
     };
     const refuse = (text: string, reason: BotReason = botReason(text)) => {
       failed(reason);
@@ -312,7 +318,11 @@ export class RuntimeRouter {
     } : beforeDispatch;
     let result: unknown;
     try {
-      result = await (target ? this.#chrome.service.agentRpc(target, method, params, dispatch) : this.#old.agentRpc(session, spec, method, params, dispatch, ctx));
+      result = await (neo && this.#neo
+        ? this.#neo.agentRpc(neo, method, params, dispatch)
+        : target
+          ? this.#chrome.service.agentRpc(target, method, params, dispatch)
+          : this.#old.agentRpc(session, spec, method, params, dispatch, ctx));
     } catch (error) {
       if (error instanceof ClaimRefused) return refuse(error.message);
       const reason = botReason(error instanceof Error ? error.message : "");
@@ -326,48 +336,52 @@ export class RuntimeRouter {
   }
 
   previewFrame<T>(session: string, capture: () => Promise<T>, spec: { command: string; args?: readonly string[] }): Promise<T | { png: string; format: "jpeg" }> {
+    if (this.#neo && neoTarget(session, spec)) return this.#neo.previewFrame(session);
     return chromeTarget(session, spec) ? this.#chrome.service.previewFrame(session) : this.#old.previewFrame(session, capture);
   }
 
   withSecretInput<T extends { ok: boolean; text: string; held?: { url: string; ms: number } }>(session: string, spec: Spec, fn: () => Promise<T>, ctx?: StepContext): Promise<T> {
+    const neo = this.#neo ? neoTarget(session, spec) : null;
+    if (neo && this.#neo) return this.#neo.withSecretInput(neo, fn);
     const target = chromeTarget(session, spec);
     return target ? this.#chrome.service.withSecretInput(target, fn) : this.#old.withSecretInput(session, spec, fn, ctx);
   }
 
   heldBy(session: string): string | null {
-    return this.#chrome.service.heldBy(session) ?? this.#old.heldBy(session);
+    return this.#neo?.heldBy(session) ?? this.#chrome.service.heldBy(session) ?? this.#old.heldBy(session);
   }
 
   working(session: string): boolean {
-    return this.#chrome.service.working(session) || this.#old.working(session);
+    return Boolean(this.#neo?.working(session)) || this.#chrome.service.working(session) || this.#old.working(session);
   }
 
   interrupted(session: string): boolean {
-    return this.#chrome.service.interrupted(session) || this.#old.interrupted(session);
+    return Boolean(this.#neo?.interrupted(session)) || this.#chrome.service.interrupted(session) || this.#old.interrupted(session);
   }
 
   interruptedCount(): number {
-    return this.#chrome.service.interruptedCount() + this.#old.interruptedCount();
+    return (this.#neo?.interruptedCount() ?? 0) + this.#chrome.service.interruptedCount() + this.#old.interruptedCount();
   }
 
   /** The new engine closes its own idle browsers. */
   closeIfIdle(session: string, idleMs: number, spec?: Spec & { args?: readonly string[] }): Promise<boolean> {
-    if (chromeTarget(session, spec)) return Promise.resolve(false);
+    if (neoTarget(session, spec) || chromeTarget(session, spec)) return Promise.resolve(false);
     return this.#old.closeIfIdle(session, idleMs, spec ? { command: spec.command, args: spec.args ?? [], env: spec.env } : undefined);
   }
 
   /** Closes a session's browser now unless a call, an agent or a person is using it. */
   closeUnused(session: string, spec: Spec & { args?: readonly string[] }): Promise<boolean> {
+    if (this.#neo && neoTarget(session, spec)) return this.#neo.closeUnused(session);
     if (chromeTarget(session, spec)) return this.#chrome.service.closeUnused(session);
     return this.#old.closeIfIdle(session, 1, { command: spec.command, args: spec.args ?? [], env: spec.env });
   }
 
   async close(session: string): Promise<void> {
-    await Promise.all([this.#chrome.service.close(session), this.#old.close(session)]);
+    await Promise.all([this.#neo?.close(session), this.#chrome.service.close(session), this.#old.close(session)]);
   }
 
   async closeAll(): Promise<void> {
-    await Promise.all([this.#chrome.close(), this.#old.closeAll()]);
+    await Promise.all([this.#neo?.closeAll(), this.#chrome.close(), this.#old.closeAll()]);
   }
 }
 
@@ -381,13 +395,19 @@ type SessionSpec = { session: string; spec: { command: string; args?: readonly s
 export class LiveRouter {
   readonly #old: BrowserLive;
   readonly #chrome: ChromeEngine;
+  readonly #neo: NeoBrowserEngine | undefined;
 
-  constructor(old: BrowserLive, chrome: ChromeEngine) {
+  constructor(old: BrowserLive, chrome: ChromeEngine, neo?: NeoBrowserEngine) {
     this.#old = old;
     this.#chrome = chrome;
+    this.#neo = neo;
   }
 
   open(options: OpenOptions): Promise<void> {
+    if (this.#neo && neoTarget(options.session, options.spec)) {
+      const { spec: _spec, ...rest } = options;
+      return this.#neo.live.open(rest);
+    }
     if (chromeTarget(options.session, options.spec)) {
       const { spec: _spec, ...rest } = options;
       return this.#chrome.live.open(rest);
@@ -396,6 +416,7 @@ export class LiveRouter {
   }
 
   action(options: { viewerId: string; botId: string; owner: string; body: unknown }): Promise<unknown> {
+    if (this.#neo?.live.has(options.viewerId)) return this.#neo.live.action(options);
     return this.#chrome.live.has(options.viewerId) ? this.#chrome.live.action(options) : this.#old.action(options);
   }
 
@@ -432,12 +453,12 @@ export class LiveRouter {
     return chromeTarget(session, spec) ? this.#chrome.service.download(session, id) : undefined;
   }
 
-  handBack(session: string): void { this.#chrome.live.handBack(session); this.#old.handBack(session); }
-  closeForSession(session: string): void { this.#chrome.live.closeForSession(session); this.#chrome.stream.closeForSession(session); this.#chrome.desktop.closeForSession(session); this.#old.closeForSession(session); }
-  closeForOwner(owner: string): void { this.#chrome.live.closeForOwner(owner); this.#chrome.stream.closeForOwner(owner); this.#chrome.desktop.closeForOwner(owner); this.#old.closeForOwner(owner); }
-  closeForBot(botId: string): void { this.#chrome.live.closeForBot(botId); this.#chrome.stream.closeForBot(botId); this.#chrome.desktop.closeForBot(botId); this.#old.closeForBot(botId); }
+  handBack(session: string): void { this.#neo?.live.handBack(session); this.#chrome.live.handBack(session); this.#old.handBack(session); }
+  closeForSession(session: string): void { this.#neo?.live.closeForSession(session); this.#chrome.live.closeForSession(session); this.#chrome.stream.closeForSession(session); this.#chrome.desktop.closeForSession(session); this.#old.closeForSession(session); }
+  closeForOwner(owner: string): void { this.#neo?.live.closeForOwner(owner); this.#chrome.live.closeForOwner(owner); this.#chrome.stream.closeForOwner(owner); this.#chrome.desktop.closeForOwner(owner); this.#old.closeForOwner(owner); }
+  closeForBot(botId: string): void { this.#neo?.live.closeForBot(botId); this.#chrome.live.closeForBot(botId); this.#chrome.stream.closeForBot(botId); this.#chrome.desktop.closeForBot(botId); this.#old.closeForBot(botId); }
   /** `stopping`: the server is stopping, and the panels' streams reconnect to the one that starts next. */
-  closeAll({ stopping = false }: { stopping?: boolean } = {}): void { this.#chrome.live.closeAll(); this.#chrome.stream.closeAll({ stopping }); this.#chrome.desktop.closeAll(); this.#old.closeAll(); }
+  closeAll({ stopping = false }: { stopping?: boolean } = {}): void { this.#neo?.live.closeAll(); this.#chrome.live.closeAll(); this.#chrome.stream.closeAll({ stopping }); this.#chrome.desktop.closeAll(); this.#old.closeAll(); }
   /** Who may see what changed: every v2 or desktop view that no longer shows its browser to a person allowed to see it closes now. */
   recheck(): void { this.#chrome.stream.recheck(); this.#chrome.desktop.recheck(); }
 }
