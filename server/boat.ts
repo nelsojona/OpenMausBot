@@ -748,10 +748,9 @@ async function revalidateManagedBoat(
   return instance;
 }
 
-const QUIESCE_BROWSER = [
-  'for name in chrome google-chrome chromium chromium-browser; do pid=$(pgrep -o -x "$name" 2>/dev/null || true); [ -z "$pid" ] || kill -TERM "$pid" 2>/dev/null || true; done',
-  'for i in 1 2 3 4 5 6 7 8; do if ! pgrep -x chrome >/dev/null 2>&1 && ! pgrep -x google-chrome >/dev/null 2>&1 && ! pgrep -x chromium >/dev/null 2>&1 && ! pgrep -x chromium-browser >/dev/null 2>&1; then break; fi; sleep 0.25; done',
-].join("; ");
+const QUIESCE_NAMES = "chrome google-chrome chromium chromium-browser browserclaw BrowserClawServer";
+const QUIESCE_BROWSER = `for name in ${QUIESCE_NAMES}; do pid=$(pgrep -o -x "$name" 2>/dev/null || true); [ -z "$pid" ] || kill -TERM "$pid" 2>/dev/null || true; done; `
+  + `for i in 1 2 3 4 5 6 7 8; do alive=0; for name in ${QUIESCE_NAMES}; do pgrep -x "$name" >/dev/null 2>&1 && alive=1; done; [ "$alive" = 0 ] && break; sleep 0.25; done`;
 
 async function stopBoat(cfg: AppConfig, boxId: string): Promise<void> {
   assertBoatNotDeleting(boxId);
