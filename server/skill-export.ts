@@ -10,7 +10,7 @@ export function skillExport(host: Pick<SkillsLibraryHost, "listBotSkills" | "rea
   // A skill that lives in a folder of the person's (their ~/.claude/skills, a project's) is never packed.
   const listBotSkills = (bot: BotRecord) => host.listBotSkills(bot).filter((skill) => {
     const origin = (skill as { origin?: string }).origin;
-    return origin !== "native" && origin !== "project";
+    return origin !== "native" && origin !== "project" && origin !== "bundled";
   });
   function checkedExportSkillNames(
     value: unknown,
