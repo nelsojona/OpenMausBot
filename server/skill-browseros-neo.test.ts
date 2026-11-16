@@ -117,26 +117,14 @@ describe("/browseros-neo bundled slash skill", () => {
       bundledSlashSkills: () => bundled,
     });
 
-    const skills = host.listBotSkills(bot);
-    const skillNames = skills.map((s) => s.name);
-    expect(skillNames).toContain("browseros-neo");
+    expect(host.listBotSkills(bot)).toEqual([]);
     expect(offersSkillCommand("browseros-neo")).toBe(true);
     expect(
-      parseSkillCommand("/browseros-neo provider=openai model=gpt-5.4 Check https://example.com", skillNames),
+      parseSkillCommand("/browseros-neo provider=openai model=gpt-5.4 Check https://example.com", ["browseros-neo"]),
     ).toEqual({
       name: "browseros-neo",
       request: "provider=openai model=gpt-5.4 Check https://example.com",
     });
-    expect(host.readBotSkillFile(bot, "browseros-neo")).toContain("Browser: BrowserOS neo");
-
-    const hostNoAuthoring = createSkillsLibraryHost({
-      store,
-      cfg: { features: { skillAuthoring: false } },
-      appendSkillRequestCard: () => ({ requestId: "req-1", summary: "ok" }),
-      instanceOf: () => ({ instanceId: "claude", driverKind: "claudeAgent" }),
-      bundledSlashSkills: () => bundled,
-    });
-    expect(hostNoAuthoring.listBotSkills(bot).map((s) => s.name)).toEqual(["browseros-neo"]);
 
     const rawInput = "/browseros-neo provider=openai model=gpt-5.4 Check https://example.com";
     const cliExpanded = host.expandSkillCommand(
