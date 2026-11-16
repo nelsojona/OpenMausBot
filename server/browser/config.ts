@@ -16,7 +16,37 @@ export function isValidCdpTarget(value: unknown): value is string {
   return CDP_URL.test(value);
 }
 
-export type BrowserEngineKind = "agent-browser" | "chrome";
+export type BrowserEngineKind = "agent-browser" | "chrome" | "browseros-neo";
+
+export const browserNeoScreenConfigSchema = z.object({
+  vnc: z.string().trim().max(256).optional(),
+  password: z.string().trim().max(512).optional(),
+  passwordFile: z.string().trim().max(1024).optional(),
+});
+
+export interface BrowserNeoScreenConfig {
+  vnc?: string;
+  password?: string;
+  passwordFile?: string;
+}
+
+export const browserNeoConfigSchema = z.object({
+  url: z.string().trim().max(2048).optional(),
+  token: z.string().trim().max(512).optional(),
+  tokenFile: z.string().trim().max(1024).optional(),
+  screen: browserNeoScreenConfigSchema.optional(),
+  optOutBots: z.array(z.string().trim().min(1).max(120)).max(200).optional(),
+  cloudDesktop: z.boolean().optional(),
+});
+
+export interface BrowserNeoConfig {
+  url?: string;
+  token?: string;
+  tokenFile?: string;
+  screen?: BrowserNeoScreenConfig;
+  optOutBots?: string[];
+  cloudDesktop?: boolean;
+}
 
 /** `attachCdpUrl`: a running Chrome that My Chrome profiles attach to. Config only, never env: the ambient environment must not redirect a bot's browser. */
 export const browserEngineConfigSchema = z.object({
@@ -24,8 +54,8 @@ export const browserEngineConfigSchema = z.object({
     { message: "browserEngine.attachCdpUrl must be a CDP port (1-65535) or an http(s)/ws(s) URL" }).optional(),
   idleTimeoutMinutes: z.number().int().min(1).max(60).optional(), // an unused browser closes after this; 10 when unset, 3 on MausBot Cloud
   egress: browserEgressConfigSchema.optional(),
-  /** "chrome" runs the bots' browsers on OpenMausBot's own Chrome driver, an early test; agent-browser is the default. */
-  engine: z.enum(["agent-browser", "chrome"]).optional(),
+  /** "chrome" runs the bots' browsers on OpenMausBot's own Chrome driver; "browseros-neo" routes through the BrowserOS neo proxy; agent-browser is the default. */
+  engine: z.enum(["agent-browser", "chrome", "browseros-neo"]).optional(),
   /** "pane" shows the Chrome engine's browser on the desktop app as a real page the person uses directly, an early test; streamed when unset. */
   surface: z.enum(["stream", "pane"]).optional(),
   /** On a Linux server with Xvnc, the new engine's Chrome runs with its window on a private display that the browser panel
@@ -33,6 +63,7 @@ export const browserEngineConfigSchema = z.object({
   cloudDisplay: z.boolean().optional(),
   /** The user agent the desktop pane presents: Electron's own ("native", the default) or without its Electron token ("cleaned"). */
   paneIdentity: z.enum(["native", "cleaned"]).optional(),
+  neo: browserNeoConfigSchema.optional(),
 });
 
 export interface BrowserEngineConfig {
@@ -43,9 +74,22 @@ export interface BrowserEngineConfig {
   surface?: "stream" | "pane";
   cloudDisplay?: boolean;
   paneIdentity?: "native" | "cleaned";
+  neo?: BrowserNeoConfig;
 }
 
-export function browserEngineKind(cfg: { browserEngine?: BrowserEngineConfig }): BrowserEngineKind {
+export function browserOsNeoEnabled(cfg: {
+  features?: { browserOsNeo?: boolean };
+  browserEngine?: BrowserEngineConfig;
+}): boolean {
+  if (cfg.features?.browserOsNeo === false) return false;
+  return cfg.features?.browserOsNeo === true || cfg.browserEngine?.engine === "browseros-neo";
+}
+
+export function browserEngineKind(cfg: {
+  features?: { browserOsNeo?: boolean };
+  browserEngine?: BrowserEngineConfig;
+}): BrowserEngineKind {
+  if (browserOsNeoEnabled(cfg)) return "browseros-neo";
   return cfg.browserEngine?.engine === "chrome" ? "chrome" : "agent-browser";
 }
 

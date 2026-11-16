@@ -16,7 +16,7 @@ export function portableWorkspaceConfig(value: unknown): Record<string, unknown>
 }
 
 // Computer sharing opens routes and a desktop connector here: a restore never turns it on or off.
-const DESTINATION_FEATURES = ["sharedComputers"] as const;
+const DESTINATION_FEATURES = ["sharedComputers", "browserOsNeo"] as const;
 
 export function restoredWorkspaceConfig(portable: unknown, destination: unknown): Record<string, unknown> {
   if (!destination || typeof destination !== "object" || Array.isArray(destination)) throw new Error("Invalid destination workspace configuration; connections were not changed.");
@@ -49,8 +49,8 @@ export function excludedWorkspaceAuthPath(path: string): boolean {
   // A dated copy of the settings file, and the copy of one that could not be understood: they hold the credentials
   // the settings file holds, so they never leave the computer they were taken on.
   if (/^config\.json\.(?:bak\.\d{8}-\d{6}(?:-\d+)?|unreadable-[0-9a-f]{12})(?:\.\d+\.[0-9a-f-]+\.tmp)?$/.test(path)) return true;
-  return /^(?:(?:providers|caddy|chrome-profile|\.agent-browser)(?:\/|$)|workspace-credentials\.json$|external-runtimes\.json$|browser-engine-key$)/.test(path) ||
-    /^(?:config\.json|webhooks\.json|workspace-credentials\.json|external-runtimes\.json|browser-engine-key|sessions\.json|tunnel-account\.json)\.\d+(?:\.[0-9a-f-]+)?\.tmp$/.test(path) ||
+  return /^(?:(?:providers|caddy|chrome-profile|\.agent-browser)(?:\/|$)|workspace-credentials\.json$|external-runtimes\.json$|browser-proxies\.json$|browser-engine-key$)/.test(path) ||
+    /^(?:config\.json|webhooks\.json|workspace-credentials\.json|external-runtimes\.json|browser-proxies\.json|browser-engine-key|sessions\.json|tunnel-account\.json)\.\d+(?:\.[0-9a-f-]+)?\.tmp$/.test(path) ||
     /^(?:vm-home|vm-homes\/[^/]+)\/\.browser-profiles(?:\/|$)/.test(path);
 }
 
