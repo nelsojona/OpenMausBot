@@ -11,8 +11,17 @@ export interface SlashSkill {
   description: string;
 }
 
-export function skillSlashCommands(skills: readonly SlashSkill[]): ComposerSlashCommand[] {
-  return skills
+const BROWSEROS_NEO_SLASH_SKILL: SlashSkill = {
+  name: "browseros-neo",
+  description: "Run a browser task in BrowserOS neo, optionally on a chosen provider and model.",
+};
+
+export function skillSlashCommands(skills: readonly SlashSkill[], browserOsNeo = false): ComposerSlashCommand[] {
+  const merged =
+    browserOsNeo && !skills.some((skill) => skill.name === BROWSEROS_NEO_SLASH_SKILL.name)
+      ? [...skills, BROWSEROS_NEO_SLASH_SKILL]
+      : skills;
+  return merged
     .filter((skill) => offersSkillCommand(skill.name))
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((skill) => ({ kind: "skill", id: skill.name, label: `/${skill.name}`, description: skill.description }));
