@@ -226,7 +226,12 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
         }
       }
       const disablingBuiltInBrowser = patch.features?.browser === false && builtInBrowserEnabled(cfg);
-      const switchingBrowserEngine = patch.browserEngine?.engine !== undefined && patch.browserEngine.engine !== browserEngineKind(cfg);
+      const nextEngineCfg = {
+        features: { ...cfg.features, ...patch.features },
+        browserEngine: { ...cfg.browserEngine, ...patch.browserEngine },
+      };
+      const switchingBrowserEngine = browserEngineKind(nextEngineCfg) !== browserEngineKind(cfg)
+        || patch.browserEngine?.neo !== undefined;
       const removedBrowserProfileIds = patch.browserProfiles === undefined
         ? []
         : (cfg.browserProfiles ?? [])
