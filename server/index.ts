@@ -5972,7 +5972,7 @@ async function computerPreviewSurface(bot: BotRecord, threadId?: string) {
   }
   if (!CLOUD_HOME && shouldMountLocalComputer({ requested: undefined, hostPlatform: process.platform,
     providerSupportsLocal: instance?.adapter.capabilities.localComputerMcp === true }) && desktopComputer.connection()) return "local";
-  if (!CLOUD_HOME && await neoVmScreenLive(cfg, DATA_DIR, bot)) return "vm";
+  if (!CLOUD_HOME && instance?.adapter.capabilities.computerMcp && await neoVmScreenLive(cfg, DATA_DIR, bot)) return "vm";
   if (bot.cloudBackend === "vps") return "cloud";
   return plan.browser ? "browser" : "off";
 }
@@ -8237,7 +8237,7 @@ async function beginTurn(
       if (autoPinAllowed()) {
         const claimSlot = autoVmClaims.get(threadId);
         const pinsAtClaim = claimSlot?.owner.generation === resourceOwner.generation;
-        const used = pinsAtClaim ? null : mountedComputer ?? (integrations.browser ? "browser" : null);
+        const used = pinsAtClaim ? null : mountedComputer ?? (integrations.browser && (CLOUD_HOME || !(await neoVmScreenLive(cfg, DATA_DIR, bot))) ? "browser" : null);
         if (used) store.patchTask(bot.id, threadId, { surface: used, surfaceSource: "auto" });
       }
       const computerSelection = computerSelectionTurns.get(threadId);
