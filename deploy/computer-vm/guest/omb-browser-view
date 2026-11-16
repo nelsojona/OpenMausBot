@@ -1,0 +1,9 @@
+#!/bin/bash
+set -eu
+case "${1:-}" in
+  show) workspace=2 ;;
+  hide) workspace=1 ;;
+  *) echo "usage: omb-browser-view show|hide" >&2; exit 2 ;;
+esac
+eval "$(systemctl --user show-environment | grep -E '^(WAYLAND_DISPLAY|HYPRLAND_INSTANCE_SIGNATURE|XDG_RUNTIME_DIR)=' | sed 's/^/export /')"
+exec hyprctl eval "hl.dispatch(hl.dsp.focus({ workspace = $workspace }))"
