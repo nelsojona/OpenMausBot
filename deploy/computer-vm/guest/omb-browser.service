@@ -1,0 +1,15 @@
+[Unit]
+Description=OpenMausBot browser (BrowserOS neo)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+EnvironmentFile=-%h/.config/openmausbot/browser.env
+ExecStart=/opt/browseros-neo/squashfs-root/AppRun --ozone-platform=wayland --no-first-run --no-default-browser-check --password-store=basic --hide-crash-restore-bubble $OMB_BROWSER_FLAGS about:blank
+# BrowserOS neo 0.52.1.1 spawns BrowserClawServer outside the launcher scope; clean it up on stop.
+ExecStopPost=-/usr/bin/pkill -u %U -f ^/opt/browseros-neo/squashfs-root/opt/browserclaw/
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target
