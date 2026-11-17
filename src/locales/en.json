@@ -11197,5 +11197,8 @@
   "cliLogin.scopeAll": "Full control",
   "cliLogin.scopeChat": "Chat only",
   "cliLogin.allow": "Allow",
-  "cliLogin.deny": "Deny"
+  "cliLogin.deny": "Deny",
+  "settings.browser.neoTitle": "BrowserOS neo",
+  "settings.browser.neoOffShort": "Route bots' browsers through your BrowserOS neo proxy.",
+  "settings.browser.neoAria": "Use BrowserOS neo"
 }
