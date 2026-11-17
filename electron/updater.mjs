@@ -194,6 +194,13 @@ export function startUpdater(signals = null) {
     setState({ status: "error", message: UPDATE_TEXT.unavailable, messageCode: "unavailable" });
     return;
   }
+  // electron-builder 26.15.3 omits app-update.yml for unpacked --dir targets.
+  const configPath = autoUpdater?.app?.appUpdateConfigPath;
+  if (typeof configPath === "string" && !existsSync(configPath)) {
+    updaterCoordinator = null;
+    setState({ status: "idle" });
+    return;
+  }
   // The coordinator starts each download itself, so it owns macOS staging and quiet failures.
   autoUpdater.autoDownload = false;
   autoUpdater.logger = updaterLogger();
