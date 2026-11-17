@@ -11109,5 +11109,8 @@
   "settings.vault.bitwarden.address": "Server address",
   "settings.vault.bitwarden.password": "Master password",
   "settings.vault.bitwarden.note": "Kept encrypted on the computer this runs on and never shown again. Bitwarden's logins appear in the list above, filled the same way, and are changed in Bitwarden.",
-  "settings.vault.bitwarden.error": "Bitwarden could not be connected. Try again."
+  "settings.vault.bitwarden.error": "Bitwarden could not be connected. Try again.",
+  "settings.browser.neoTitle": "BrowserOS neo",
+  "settings.browser.neoOffShort": "Route bots' browsers through your BrowserOS neo proxy.",
+  "settings.browser.neoAria": "Use BrowserOS neo"
 }
