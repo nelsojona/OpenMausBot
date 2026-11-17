@@ -460,3 +460,19 @@ it("a server's page the window shows may ask for the app's own update: it learns
   expect(confirmRestart).toHaveBeenLastCalledWith("2.0.0", OTHER);
   expect(autoUpdater.quitAndInstall).toHaveBeenCalledTimes(1);
 });
+
+it("stays idle without scheduling checks when a packaged dir build has no app-update.yml", async () => {
+  const rule = mainRule();
+  const local = page(LOCAL);
+  rule.show(local);
+  const { updater, autoUpdater, handlers } = await load(rule.pageAllowed);
+  autoUpdater.app = { appUpdateConfigPath: join(fixture.home, "app-update.yml") };
+  updater.attachUpdaterWindow({ webContents: local.webContents });
+  updater.startUpdater();
+  vi.advanceTimersByTime(4 * 60 * 60 * 1000);
+  await settle();
+  expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
+  expect(await handlers.get("update:get-state")(local.event)).toEqual({ status: "idle" });
+  await handlers.get("update:check")(local.event);
+  expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
+});
