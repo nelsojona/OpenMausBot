@@ -158,7 +158,7 @@ export function UpdateBanner({ sidebarIndicator = false }: UpdateBannerProps) {
             <button
               onClick={() => {
                 setPending("check");
-                void updater.check();
+                void updater.check().finally(() => setPending(null));
               }}
               disabled={pending !== null}
               className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-control py-1.5 text-[13px] text-ink hover:bg-raised-hover disabled:text-ink-secondary disabled:hover:bg-control"
