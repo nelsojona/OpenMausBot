@@ -139,8 +139,8 @@ export function configEntries(deps: Pick<RegistryDeps, "cfg" | "saveConfig" | "b
       says: (proxy) => (proxy ? "Send bots' browsers to public sites through the SOCKS5 proxy you named" : "Send bots' browsers to public sites directly, with no proxy"),
     }),
     section({
-      id: "desktops.browserEngine", label: "Browser engine", help: "What runs bots' browsers: agent-browser (the default) or MausBot's own Chrome driver (early).", where: "browser",
-      synonyms: ["browser engine", "chrome", "new browser", "agent-browser"], value: z.enum(["agent-browser", "chrome"]), allowed: "agent-browser or chrome",
+      id: "desktops.browserEngine", label: "Browser engine", help: "What runs bots' browsers: agent-browser (the default), MausBot's own Chrome driver (early), or BrowserOS neo.", where: "browser",
+      synonyms: ["browser engine", "chrome", "new browser", "agent-browser", "browseros", "browseros-neo", "neo"], value: z.enum(["agent-browser", "chrome", "browseros-neo"]), allowed: "agent-browser, chrome, or browseros-neo",
       current: () => cfg().browserEngine?.engine ?? "agent-browser", patch: (engine) => ({ browserEngine: { engine } }),
     }),
     feature("desktops.savedSteps", "Saved steps", "Bots may repeat saved browser steps without AI.", "saved-steps", ["saved steps", "repeat", "without ai"], "savedSteps", true,

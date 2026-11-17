@@ -88,7 +88,7 @@ import {
   doubleEnterSteersQueue,
   roomSteersQueued,
 } from "./ComposerQueuedMessages";
-import { skillAuthoringEnabled } from "@/lib/feature-flags";
+import { builtInBrowserEnabled, skillAuthoringEnabled } from "@/lib/feature-flags";
 import { mentionChoicesForQuery, mentionQueryAt } from "@/lib/mentions"; import { mentionPicksFor, restoreMentionPicks } from "@/lib/mention-picks";
 import { serializeThreadRefs, threadTokenFromPaste, threadTokenSpacing } from "@/lib/thread-refs";
 import {
@@ -336,9 +336,9 @@ export function Composer({
       description: t("composer.command.setupDesc"),
     }, { kind: "command", id: "burst", label: "/burst", description: t("composer.command.burstDesc") });
     if (builtIns && forkOwnerId) available.push({ kind: "command", id: "fork", label: "/fork", description: t("composer.command.forkDesc") });
-    available.push(...skillSlashCommands(slashSkills, state.config?.browserEngine?.engine === "browseros-neo").filter((command) => !(builtIns && forkOwnerId && command.id === "fork")));
+    available.push(...skillSlashCommands(slashSkills, state.config?.browserEngine?.engine === "browseros-neo" || builtInBrowserEnabled(state.config)).filter((command) => !(builtIns && forkOwnerId && command.id === "fork")));
     return available.filter((command) => slashCommandMatches(command, slash.query));
-  }, [slash, dismissedSlashAt, group, bot, canLearn, state.instances, state.config?.browserEngine?.engine, locale, slashSkills, forkOwnerId]);
+  }, [slash, dismissedSlashAt, group, bot, canLearn, state.instances, state.config, locale, slashSkills, forkOwnerId]);
   const commandPickerOpen = commandCandidates.length > 0;
 
   const mention = mentionQueryAt(text, caret); const teammates = useTeammates(); const viewer = useViewerEmail();
