@@ -11308,5 +11308,8 @@
   "insights.other": "Other",
   "insights.breakdown": "Breakdown",
   "insights.byHour": "By hour",
-  "insights.share": "Share"
+  "insights.share": "Share",
+  "settings.browser.neoTitle": "BrowserOS neo",
+  "settings.browser.neoOffShort": "Route bots' browsers through your BrowserOS neo proxy.",
+  "settings.browser.neoAria": "Use BrowserOS neo"
 }

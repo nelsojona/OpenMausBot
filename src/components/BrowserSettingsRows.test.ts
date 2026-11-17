@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "@/lib/i18n";
-import { BrowserProxyRow, BuiltInBrowserRow, NewBrowserSettings, ServerSitesRow } from "./BrowserSettingsRows";
+import { BrowserOsNeoRow, BrowserProxyRow, BuiltInBrowserRow, NewBrowserSettings, ServerSitesRow } from "./BrowserSettingsRows";
 
 const fixture = vi.hoisted(() => ({
   config: undefined as Record<string, unknown> | undefined,
@@ -152,7 +152,6 @@ describe("Built-in browser proxy setting", () => {
     expect(host.querySelector('input[aria-label="SOCKS5 proxy"]')).not.toBeNull();
   });
 });
-
 describe("Built-in browser without Google Chrome", () => {
   const show = () => flushSync(() => root.render(createElement(BuiltInBrowserRow)));
   const row = () => host.textContent ?? "";
@@ -180,5 +179,36 @@ describe("Built-in browser without Google Chrome", () => {
     fixture.config = { features: { browser: false }, browserEngine: { kind: "engine", noChrome: true, myChrome: true } };
     show();
     expect(row()).not.toContain("Google Chrome");
+  });
+});
+
+describe("BrowserOS neo setting", () => {
+  const show = () => flushSync(() => root.render(createElement(BrowserOsNeoRow)));
+  const sw = () => host.querySelector<HTMLButtonElement>('button[aria-label="Use BrowserOS neo"]');
+  afterEach(() => { owner.value = true; });
+
+  it("toggles BrowserOS neo directly in the Browser settings section", async () => {
+    fixture.config = { features: { browser: true }, browserEngine: { kind: "engine", engine: "agent-browser" } };
+    const savedOn = { features: { browser: true }, browserEngine: { kind: "engine", engine: "browseros-neo" } };
+    fixture.api.mockResolvedValueOnce(savedOn);
+    show();
+    expect(sw()?.getAttribute("aria-checked")).toBe("false");
+    flushSync(() => sw()!.click());
+    await vi.waitFor(() => expect(fixture.dispatch).toHaveBeenCalledWith({ type: "configStatus", config: savedOn }));
+    expect(fixture.api).toHaveBeenCalledWith("/api/config", {
+      method: "PATCH",
+      body: JSON.stringify({ features: { browserOsNeo: true }, browserEngine: { engine: "browseros-neo" } }),
+    });
+    show();
+    expect(sw()?.getAttribute("aria-checked")).toBe("true");
+
+    const savedOff = { features: { browser: true }, browserEngine: { kind: "engine", engine: "agent-browser" } };
+    fixture.api.mockResolvedValueOnce(savedOff);
+    flushSync(() => sw()!.click());
+    await vi.waitFor(() => expect(fixture.dispatch).toHaveBeenCalledWith({ type: "configStatus", config: savedOff }));
+    expect(fixture.api).toHaveBeenLastCalledWith("/api/config", {
+      method: "PATCH",
+      body: JSON.stringify({ features: { browserOsNeo: false }, browserEngine: { engine: "agent-browser" } }),
+    });
   });
 });
