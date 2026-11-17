@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -12,7 +12,7 @@ import { BROWSER_CONTROL_REFUSAL } from "../../browser-runtime.ts";
 import type { AppConfig } from "../../config.ts";
 import { createBrowserHost } from "../../host/browser.ts";
 import { NEO_BROWSER_SYSTEM_PROMPT } from "../prompt.ts";
-import { resolveNeoRoute } from "./config.ts";
+import { neoFeatureActive, resolveNeoRoute } from "./config.ts";
 import { NEO_ENGINE, NEO_TOOL_LIST, NeoBrowserEngine, neoTarget } from "./engine.ts";
 
 const TOKEN = "test-neo-engine-token-0123456789abcdef";
@@ -469,5 +469,25 @@ describe("BrowserOS neo routing and engine", () => {
     });
     expect(engine.heldBy("bot-scout")).toBeNull();
     res.end();
+  });
+
+  it("auto-activates BrowserOS neo from a provisioned local VM without manual feature flags", () => {
+    const dataDir = makeTempDir();
+    const vmRoot = join(dataDir, "vms");
+    const vmDir = join(vmRoot, "omb-computer-1");
+    mkdirSync(join(vmDir, "secrets"), { recursive: true });
+    writeFileSync(join(vmDir, "provisioned"), "ok\n");
+    writeFileSync(join(vmDir, "secrets", "browser-proxy.token"), `${TOKEN}\n`);
+    const env: NodeJS.ProcessEnv = { OMB_VM_ROOT: vmRoot, OMB_VM_PROXY_PORT: "17791", OMB_VM_SCREEN_PORT: "15981" };
+    const cfg: AppConfig = { features: { browser: true } };
+
+    expect(neoFeatureActive(cfg, dataDir, env)).toBe(true);
+    expect(resolveNeoRoute({ id: "scout" }, cfg, dataDir, env)).toEqual({
+      kind: "proxy",
+      endpoint: "http://127.0.0.1:17791/v1/page-browser",
+      token: TOKEN,
+      screen: { host: "127.0.0.1", port: 15981 },
+    });
+    expect(neoFeatureActive({ features: { browser: true, browserOsNeo: false } }, dataDir, env)).toBe(false);
   });
 });

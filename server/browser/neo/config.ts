@@ -172,11 +172,19 @@ export interface NeoRouteBotInput {
   readonly computerOwner?: string;
 }
 
-export function neoFeatureActive(cfg: AppConfig, dataDir: string): boolean {
+export function neoFeatureActive(
+  cfg: AppConfig,
+  dataDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
   if (cfg.features?.browserOsNeo === false) return false;
   if (browserOsNeoEnabled(cfg)) return true;
+  if (cfg.browserEngine?.neo?.url) return true;
   const proxyFile = readProxyFile(dataDir);
-  return proxyFile.present && Boolean(proxyFile.data?.default || (proxyFile.data?.bots && Object.keys(proxyFile.data.bots).length > 0));
+  if (proxyFile.present && Boolean(proxyFile.data?.default || (proxyFile.data?.bots && Object.keys(proxyFile.data.bots).length > 0))) {
+    return true;
+  }
+  return discoverDefaultLocalVmProxy(env) !== null;
 }
 
 export function resolveNeoRoute(
@@ -204,7 +212,12 @@ export function resolveNeoRoute(
     return resolveHttpEntry(botOverride, dataDir);
   }
 
-  const enabledGlobally = browserOsNeoEnabled(cfg) || Boolean(proxyFile.data?.default);
+  const discovered = discoverDefaultLocalVmProxy(env);
+  const enabledGlobally =
+    browserOsNeoEnabled(cfg) ||
+    Boolean(proxyFile.data?.default) ||
+    Boolean(neoCfg?.url) ||
+    discovered !== null;
   if (!enabledGlobally) return { kind: "disabled" };
 
   if (
@@ -233,7 +246,6 @@ export function resolveNeoRoute(
     return resolveHttpEntry(neoCfg, dataDir);
   }
 
-  const discovered = discoverDefaultLocalVmProxy(env);
   if (discovered) return discovered;
 
   if (bot && neoCfg?.cloudDesktop !== false && boat.boatConfigured(cfg) && bot.computer !== "local" && bot.cloudBackend !== "vps") {

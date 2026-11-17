@@ -12330,5 +12330,8 @@
   "server.github.card.clone": "{bot} couldn't clone {repo}: GitHub isn't connected.",
   "server.github.card.fetch": "{bot} couldn't fetch from {repo}: GitHub isn't connected.",
   "server.github.card.description": "Connect GitHub so {bot} can push its work to your repositories.",
-  "server.github.card.connectInApps": "Connect GitHub from this card in the app on your computer, or in Apps."
+  "server.github.card.connectInApps": "Connect GitHub from this card in the app on your computer, or in Apps.",
+  "settings.browser.neoTitle": "BrowserOS neo",
+  "settings.browser.neoOffShort": "Route bots' browsers through your BrowserOS neo proxy.",
+  "settings.browser.neoAria": "Use BrowserOS neo"
 }
