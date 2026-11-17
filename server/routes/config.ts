@@ -211,7 +211,8 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
         browserEngine: { ...cfg.browserEngine, ...patch.browserEngine },
       };
       const switchingBrowserEngine = browserEngineKind(nextEngineCfg) !== browserEngineKind(cfg)
-        || patch.browserEngine?.neo !== undefined;
+        || patch.browserEngine?.neo !== undefined
+        || patch.features?.browserOsNeo !== undefined;
       const removedBrowserProfileIds = patch.browserProfiles === undefined
         ? []
         : (cfg.browserProfiles ?? [])

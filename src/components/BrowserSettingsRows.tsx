@@ -125,10 +125,37 @@ export function BrowserProxyRow() {
   );
 }
 
+/** browserEngine.engine === "browseros-neo": routes built-in bot browsers through the BrowserOS neo proxy. */
+export function BrowserOsNeoRow() {
+  const { state } = useStore();
+  const owner = useOwnerOrAdmin();
+  const on = state.config?.browserEngine?.engine === "browseros-neo";
+  const ready = on && browserAvailable(state.config);
+  const { saving, error, save } = useConfigSave();
+  if (owner !== true || (!builtInBrowserEnabled(state.config) && !on)) return null;
+
+  return (
+    <SettingRow
+      title={t("settings.browser.neoTitle")}
+      subtitle={on ? (ready ? t("settings.ai.ready") : browserUnavailableReason(state.config)) : t("settings.browser.neoOffShort")}
+      message={error ? <p role="alert" className="text-danger">{error}</p> : null}
+    >
+      <Switch
+        checked={on}
+        aria-label={t("settings.browser.neoAria")}
+        disabled={saving}
+        onClick={() => void save({ features: { browserOsNeo: !on }, browserEngine: { engine: on ? "agent-browser" : "browseros-neo" } })}
+        className="disabled:cursor-wait disabled:opacity-50"
+      />
+    </SettingRow>
+  );
+}
+
 /** browserEngine.engine: the bots' browsers run on OpenMausBot's own Chrome driver instead of agent-browser. */
 export function NewBrowserSettings() {
   const { state } = useStore();
   const on = state.config?.browserEngine?.engine === "chrome";
+  const fromNeo = state.config?.browserEngine?.engine === "browseros-neo";
   const { saving, error, save } = useConfigSave();
 
   return (
@@ -139,7 +166,10 @@ export function NewBrowserSettings() {
           checked={on}
           aria-label={t("settings.experimental.newBrowserAria")}
           disabled={saving}
-          onClick={() => void save({ browserEngine: { engine: on ? "agent-browser" : "chrome" } })}
+          onClick={() => void save({
+            ...(fromNeo ? { features: { browserOsNeo: false } } : {}),
+            browserEngine: { engine: on ? "agent-browser" : "chrome" },
+          })}
           className="disabled:cursor-wait disabled:opacity-50"
         />
       </SettingRow>
