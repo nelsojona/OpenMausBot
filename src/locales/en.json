@@ -11881,5 +11881,8 @@
   "skillBurger.pill.running": "Running… {count}",
   "skillBurger.pill.stopped": "Stopped",
   "skillBurger.pill.addPath": "Add path",
-  "skillBurger.card.madeBy": "Made by {name}"
+  "skillBurger.card.madeBy": "Made by {name}",
+  "settings.browser.neoTitle": "BrowserOS neo",
+  "settings.browser.neoOffShort": "Route bots' browsers through your BrowserOS neo proxy.",
+  "settings.browser.neoAria": "Use BrowserOS neo"
 }
