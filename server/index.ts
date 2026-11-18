@@ -610,8 +610,8 @@ import { createUndoRoutes } from "./routes/undo.ts";
 import { createDesktopViewer, desktopViewerUrl } from "./routes/desktop-viewer.ts";
 import { createUpgrades } from "./routes/upgrades.ts";
 import { createBrowserViewerRoutes } from "./routes/browser-viewers.ts";
-import { localDesktopTarget, localVmViewerStatus } from "./desktop-viewer-targets.ts"; import { neoDesktopTarget, neoLocalVmFallback, neoViewerLease, neoVmScreenLive } from "./browser/neo/vm-screen.ts";
-import { DESKTOP_VIEWER_TARGET, viewerTargetId } from "../shared/desktop-viewer.ts";
+import { localVmViewerStatus, resolveDesktopViewerLease, resolveDesktopViewerTarget } from "./desktop-viewer-targets.ts"; import { neoLocalVmFallback, neoVmScreenLive } from "./browser/neo/vm-screen.ts";
+import { DESKTOP_VIEWER_TARGET } from "../shared/desktop-viewer.ts";
 import { createComputerPreviews } from "./computer-previews.ts";
 import { createAntigravityLeftoverRoutes } from "./routes/antigravity-leftovers.ts";
 import { createAntigravityAccountRoutes } from "./routes/antigravity-accounts.ts";
@@ -4583,35 +4583,20 @@ const upgrades = createUpgrades();
 const phoneScreen = createPhoneScreenRoutes({ upgrades, hold: phoneHold, enabled: usbPhoneTakeoverOn, live: (auth) => auth.kind === "loopback" || sessions.isLive(auth.session.id), dataDir: DATA_DIR });
 const desktopViewer = createDesktopViewer({
   upgrades,
-  target: (id) => {
-    if (id === "local/neo") return neoDesktopTarget(() => cfg, DATA_DIR, () => store.bots);
-    if (id.startsWith("vps/")) {
-      const botId = id.slice(4);
-      if (store.bot(botId)?.cloudBackend !== "vps") return;
-      return { key: id, resolve: async () => {
-        const connection = vps.vpsDesktopConnection(botId);
-        if (!connection) throw Object.assign(new Error("VPS viewer is not open"), { status: 409 });
-        return connection;
-      } };
-    }
-    const targets = [SHARED_LOCAL_VM_TARGET, ...store.bots.map(bot => perBotLocalVmTarget(bot.id)),
-      ...Array.from({ length: localVmMaxInstances(cfg) }, (_, seat) => poolLocalVmTarget(seat))];
-    const target = targets.find(target => viewerTargetId(target) === id);
-    return target && localDesktopTarget(target, {
-      status: target => containerComputerStatus(undefined, undefined, target, { probeDesktop: false }),
-      touch: target => localVmIdleFor(target).touch(),
-    });
-  },
+  target: id => resolveDesktopViewerTarget(id, {
+    cfg: () => cfg, dataDir: DATA_DIR, bots: () => store.bots,
+    bot: botId => store.bot(botId), vpsConnection: botId => vps.vpsDesktopConnection(botId),
+    status: target => containerComputerStatus(undefined, undefined, target, { probeDesktop: false }),
+    touch: target => localVmIdleFor(target).touch(),
+  }),
   live: auth => auth.kind === "loopback" || sessions.isLive(auth.session.id),
   // A control lease opens only the computer it holds, and only when that is the desktop being viewed.
-  lease: (id, botId, controlLeaseId, threadId) => {
-    const bot = store.bot(botId);
-    if (bot && id === "local/neo") return neoViewerLease(bot, cfg, DATA_DIR, sharedVm.leaseKey(bot, threadId), controlLeaseId, (key, leaseId) => computerControl.beat(key, leaseId));
-    if (!bot || viewerTargetId(localVmTargetForStatus(bot.id, threadId)) !== id) return;
-    const key = sharedVm.leaseKey(bot, threadId);
-    const holds = () => computerControl.beat(key, controlLeaseId);
-    return holds() ? holds : undefined;
-  },
+  lease: (id, botId, controlLeaseId, threadId) => resolveDesktopViewerLease(id, botId, controlLeaseId, threadId, {
+    cfg, dataDir: DATA_DIR, bot: id => store.bot(id),
+    targetForStatus: (botId, threadId) => localVmTargetForStatus(botId, threadId),
+    leaseKey: (bot, threadId) => sharedVm.leaseKey(bot, threadId),
+    beat: (key, leaseId) => computerControl.beat(key, leaseId),
+  }),
 });
 function closeSessionStreams(sessionId: string): void {
   browserLive.closeForOwner(sessionId);
