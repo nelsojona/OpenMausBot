@@ -201,6 +201,7 @@ const CONFIG_CATEGORY: Record<string, AdminActivityCategory> = {
   instances: "engine",
   anthropic: "engine",
   openaiCompat: "engine",
+  vertex: "engine",
   xai: "engine",
   opencodeGo: "engine",
   defaultModelSelection: "engine",
