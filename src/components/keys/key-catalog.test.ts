@@ -115,6 +115,7 @@ describe("searching the keys", () => {
     expect(found("openai")).toEqual(expect.arrayContaining(["openai", "liveCalls", "liveKey", "imageOpenai"]));
     expect(found("gmail")).toEqual(["composio"]);
     expect(found("gemini")).toEqual(["openaiCompat", "geminiTts", "imageGemini"]);
+    expect(found("vertex")).toEqual(["vertex"]);
     expect(found("no such key anywhere")).toEqual([]);
   });
 
@@ -157,6 +158,7 @@ describe("engines that run on a key", () => {
     expect(keyForInstance("claudeApi")).toBe("anthropic");
     expect(keyForInstance("xaiApi")).toBe("xai");
     expect(keyForInstance("deepseek")).toBe("deepseek");
+    expect(keyForInstance("vertex")).toBe("vertex");
     expect(keyForInstance("claude")).toBeUndefined();
     expect(keyForInstance(undefined)).toBeUndefined();
   });
