@@ -67,6 +67,8 @@ export const KEY_PROVIDERS: readonly Provider[] = [
   { id: "greenference", label: "Greenference", for: ["greenference"], config: keyed("greenference") },
   { id: "modelgo", label: "ModelGo", for: ["modelgo"], config: keyed("modelgo") },
   { id: "meta", label: "Meta", for: ["meta"], config: keyedUrl("meta") },
+  { id: "vertex", label: "Vertex AI", for: ["vertex"], config: (cfg) => cfg.vertex?.apiKey
+    ? { vertex: { apiKey: cfg.vertex.apiKey, baseUrl: cfg.vertex.baseUrl || "http://127.0.0.1:18790/v1" } } : null },
   { id: "openaiCompat", label: "OpenAI-compatible", for: ["openaiCompat"], config: (cfg) => cfg.openaiCompat?.key
     ? { openaiCompat: Object.fromEntries(Object.entries(cfg.openaiCompat).filter(([, value]) => typeof value === "string" && value)) } : null },
   { id: "opencodeGo", label: "OpenCode", for: ["opencodeGo"], config: (cfg) => cfg.opencodeGo?.apiKey || Object.keys(cfg.opencodeGo?.providerKeys ?? {}).length
@@ -125,8 +127,11 @@ export function runsHere(server: StoredMcpServer): boolean {
 /** A key whose model address only this computer or its own network reaches (a model server at home): My Cloud would
  * call nothing there, so it stays on this computer. */
 export function modelStaysHere(fragment: Partial<AppConfig>): boolean {
-  return Object.values(fragment).some((entry) => entry !== null && typeof entry === "object" && typeof (entry as { url?: unknown }).url === "string"
-    && Boolean((entry as { url: string }).url.trim()) && addressHere((entry as { url: string }).url));
+  return Object.values(fragment).some((entry) => {
+    if (entry === null || typeof entry !== "object") return false;
+    const url = (entry as { url?: unknown; baseUrl?: unknown }).url ?? (entry as { baseUrl?: unknown }).baseUrl;
+    return typeof url === "string" && Boolean(url.trim()) && addressHere(url);
+  });
 }
 
 /** Each key provider this computer has a key for that moves, with its config fragment. */
