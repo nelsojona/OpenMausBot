@@ -1,14 +1,14 @@
 // OpenRouter's catalog is public, so /key proves the key there; elsewhere /models proves only catalog access. Keys go only over TLS (or loopback).
 import { isIP } from "node:net";
 
-export type ProviderKeyKind = "anthropic" | "openai" | "openrouter" | "openaiCompat" | "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta";
+export type ProviderKeyKind = "anthropic" | "openai" | "openrouter" | "openaiCompat" | "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "vertex";
 
 export type ProviderKeyVerdict =
   /** `freeTier`: OpenRouter's /key says the account never bought credit, so paid models refuse it. */
   | { ok: true; check: "authentication" | "models"; models: string[]; freeTier?: boolean }
   | { ok: false; reason: "rejected" | "unreachable" | "unexpected"; status?: number };
 
-export const PROVIDER_KEY_KINDS: readonly ProviderKeyKind[] = ["anthropic", "openai", "openrouter", "openaiCompat", "xai", "mistral", "cerebras", "groq", "greenference", "modelgo", "meta"];
+export const PROVIDER_KEY_KINDS: readonly ProviderKeyKind[] = ["anthropic", "openai", "openrouter", "openaiCompat", "xai", "mistral", "cerebras", "groq", "greenference", "modelgo", "meta", "vertex"];
 
 const DEFAULT_URLS: Record<ProviderKeyKind, string> = {
   anthropic: "https://api.anthropic.com",
@@ -22,6 +22,7 @@ const DEFAULT_URLS: Record<ProviderKeyKind, string> = {
   greenference: "https://llm.eu.greenference.com/v1",
   modelgo: "https://api.modelgo.ai/v1",
   meta: "https://api.meta.ai/v1",
+  vertex: "http://127.0.0.1:18790/v1",
 };
 
 const MAX_MODELS = 5;
