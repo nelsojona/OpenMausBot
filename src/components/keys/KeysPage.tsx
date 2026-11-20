@@ -12,7 +12,7 @@ import { BuiltInReplyWait, LmStudioServer, OtherOpenAiCompatServers } from "../O
 import { OllamaServer } from "../OllamaServer";
 import { KEY_CATALOG, KEY_SECTIONS, keyHidden, keyMatches, savedState, type KeyEntry, type KeyId, type KeySectionId } from "./key-catalog";
 import { finishKeyFocus, useKeyFocus, type KeyFocusRequest } from "./key-focus";
-import { AnthropicEveryClaudeBot, OpenAiCompatUrl, OpenCodeProviderKeys, VpsConnection } from "./KeyPanels";
+import { AnthropicEveryClaudeBot, OpenAiCompatUrl, OpenCodeProviderKeys, VertexProxyUrl, VpsConnection } from "./KeyPanels";
 import { KEY_CONTENT, KEY_ROW, KeyRow, MaskedKey, RowHeading, type KeyStatus } from "./KeyRow";
 
 const CARD = "rounded-xl bg-card in-data-[settings-look=simple]:rounded-[12px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu";
@@ -28,6 +28,7 @@ const PANELS: Partial<Record<KeyId, (visible: boolean) => ReactNode>> = {
 const EXTRAS: Partial<Record<KeyId, () => ReactNode>> = {
   anthropic: () => <AnthropicEveryClaudeBot />,
   openaiCompat: () => <><OpenAiCompatUrl /><BuiltInReplyWait /><OtherOpenAiCompatServers /></>,
+  vertex: () => <VertexProxyUrl />,
   box: () => <BoatOfferPanel />,
   liveKey: () => <LiveProviderSettings />,
 };

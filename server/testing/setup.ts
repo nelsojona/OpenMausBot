@@ -12,6 +12,9 @@ process.env.HOME = home;
 process.env.USERPROFILE = home;
 // A provider that answers 5xx retries with backoff: no test should wait out real seconds.
 process.env.FAKE_OPENAI_COMPAT_RETRY_SCALE ??= "0.001";
+process.env.FAKE_VERTEX_RETRY_SCALE ??= "0.001";
+// Unconfigured tests must not probe a live local Vertex proxy on 127.0.0.1:18790.
+process.env.OMB_DISABLE_DEFAULT_VERTEX_PROBE = "1";
 // OMB_DATA_DIR must never escape the throwaway home the suite deletes.
 delete process.env.OMB_DATA_DIR;
 // The model manifest comes from the bundled copy in tests; refreshing it would be a network call in every server boot.

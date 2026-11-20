@@ -227,6 +227,12 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
   // substrate can drive without a key. Never a real address.
   const elevenApi = parentEnv.OMB_ELEVENLABS_API?.trim() ?? "";
   if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(elevenApi)) childEnv.OMB_ELEVENLABS_API = elevenApi;
+  // Loopback stand-in for Vertex proxy only (never default 18790): tests never touch a live proxy.
+  const vertexUrl = parentEnv.OMB_VERTEX_URL?.trim() ?? "";
+  if (/^http:\/\/127\.0\.0\.1:(?!18790\b)\d{1,5}\/v1$/.test(vertexUrl)) {
+    childEnv.OMB_VERTEX_URL = vertexUrl;
+    if (parentEnv.OMB_VERTEX_API_KEY) childEnv.OMB_VERTEX_API_KEY = parentEnv.OMB_VERTEX_API_KEY;
+  }
   // Live calls need Pro; without it the fixture refuses a call with 402 needsPro.
   if (parentEnv.OMB_PRO_PLAN?.trim() === "1") childEnv.OMB_PRO_PLAN = "1";
   // Arms the one-shot audio-append failure inside the fixture server.
