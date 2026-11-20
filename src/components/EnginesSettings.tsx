@@ -445,6 +445,7 @@ function simpleStatus(instance: InstanceInfo, ready: boolean): { tone: "success"
   }
   if (instance.snapshot.ollama) return { tone: null, text: ollamaShortStatus(instance.snapshot.ollama) };
   if (instance.snapshot.state === "available" && instance.snapshot.authenticated === false) return { tone: "warning", text: t("settings.ai.attention") };
+  if (instance.driverKind === "vertex") return { tone: null, text: t("settings.ai.vertexProxyStopped") };
   // What it still needs, in a few plain words: an account sign-in or a key.
   const needs = instance.authentication !== undefined ? t("settings.ai.needsAccountOrKey") : t("settings.ai.needsKey");
   return { tone: null, text: `${t("settings.ai.notSetUp")} · ${needs}` };
