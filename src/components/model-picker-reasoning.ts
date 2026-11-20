@@ -7,13 +7,13 @@ import type { LocaleKey } from "@/locales";
 
 /** The chat engine's variants are thinking levels with these ids; other engines name their own. */
 const CHAT_ENGINE_VARIANTS: Readonly<Record<string, LocaleKey>> = {
-  off: "model.effort.off", on: "model.variant.on", none: "model.effort.none", low: "model.effort.low",
+  off: "model.effort.off", on: "model.variant.on", none: "model.effort.none", minimal: "model.effort.minimal", low: "model.effort.low",
   medium: "model.effort.medium", high: "model.effort.high", xhigh: "model.effort.xhigh", max: "model.effort.max",
 };
 
 export const variantLabel = (option: ModelVariantOption, driverKind?: string): string => {
   if (option.id === "default" && driverKind === "opencodeGo") return t("model.variant.openCodeDefault");
-  return driverKind === "openai-compat" && Object.hasOwn(CHAT_ENGINE_VARIANTS, option.id) ? t(CHAT_ENGINE_VARIANTS[option.id]!) : option.label;
+  return (driverKind === "openai-compat" || driverKind === "vertex") && Object.hasOwn(CHAT_ENGINE_VARIANTS, option.id) ? t(CHAT_ENGINE_VARIANTS[option.id]!) : option.label;
 };
 
 /** ACP variant ids are opaque; their model/session declares the available choices. */
