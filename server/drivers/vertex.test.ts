@@ -333,6 +333,7 @@ describe("Vertex AI driver — fake proxy integration", () => {
   it("auto-probes the default loopback URL with zero config and placeholder bearer", async () => {
     vi.stubEnv("OMB_DISABLE_DEFAULT_VERTEX_PROBE", "");
     vi.stubEnv("OMB_TEST_SEALED_PATH", "");
+    vi.stubEnv("OMB_ALLOW_DEFAULT_VERTEX_PROBE", "1");
     const seen: Array<{ url: string; auth: string | null }> = [];
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
       const url = String(input);
@@ -354,6 +355,28 @@ describe("Vertex AI driver — fake proxy integration", () => {
       { url: "http://127.0.0.1:18790/v1/models", auth: "Bearer local-vertex-proxy" },
       { url: "http://127.0.0.1:18790/healthz", auth: "Bearer local-vertex-proxy" },
     ]));
+
+    vi.stubEnv("OMB_ALLOW_DEFAULT_VERTEX_PROBE", "");
+    vi.stubEnv("OMB_DATA_DIR", "/Users/person/.openmausbot");
+    let directCalls = 0;
+    const directProbe = await probeVertexHealth(VERTEX_DEFAULT_BASE_URL, {
+      fetchImpl: async () => {
+        directCalls++;
+        return Response.json({ ok: true });
+      },
+    });
+    expect(directProbe).toEqual({ ok: true });
+    expect(directCalls).toBe(1);
+
+    vi.stubEnv("OMB_CLOUD_ROLE", "home");
+    const cloudProbe = await probeVertexHealth(VERTEX_DEFAULT_BASE_URL, {
+      fetchImpl: async () => {
+        directCalls++;
+        return Response.json({ ok: true });
+      },
+    });
+    expect(cloudProbe.ok).toBe(false);
+    expect(directCalls).toBe(1);
   });
 
   it("reports healthy vs connection-refused vs /v1/healthz fallback states", async () => {
