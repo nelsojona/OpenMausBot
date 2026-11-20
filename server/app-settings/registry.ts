@@ -243,6 +243,7 @@ export function createSettingsRegistry(deps: RegistryDeps): SettingEntry[] {
     provider("providers.xai.url", "xAI address", ["xai", "grok"], () => cfg().xai?.url, (text) => ({ xai: { ...cfg().xai, url: text } })),
     provider("providers.groq.url", "Groq address", ["groq"], () => cfg().groq?.url, (text) => ({ groq: { ...cfg().groq, url: text } })),
     provider("providers.meta.url", "Meta address", ["meta", "llama"], () => cfg().meta?.url, (text) => ({ meta: { ...cfg().meta, url: text } })),
+    provider("providers.vertex.baseUrl", "Vertex AI proxy address", ["vertex", "vertex ai", "gcp"], () => cfg().vertex?.baseUrl, (text) => ({ vertex: { ...cfg().vertex, baseUrl: text } })),
     provider("providers.openaiCompat.url", "OpenAI-compatible address", ["openai compatible", "custom provider", "ollama", "lm studio", "openrouter"], () => cfg().openaiCompat?.url, (text) => ({ openaiCompat: { ...cfg().openaiCompat, url: text } })),
     writable({
       id: "providers.openaiCompat.model", label: "OpenAI-compatible model", help: "The model name sent to the OpenAI-compatible provider.", where: "keys",
