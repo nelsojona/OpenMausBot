@@ -124,6 +124,9 @@ describe("engine set", () => {
     expect(JSON.parse(compat.out)).toMatchObject({ ok: false, exitCode: 2, error: "openai-compatible needs --base-url" });
     const mistral = await w.run(["engine", "set", "mistral", "--key-env", "ANTHROPIC_API_KEY", "--base-url", "https://x.example", "--json"]);
     expect(JSON.parse(mistral.out)).toMatchObject({ exitCode: 2, error: "mistral takes no base URL" });
+    const vertex = await w.run(["engine", "set", "vertex", "--key-env", "ANTHROPIC_API_KEY", "--base-url", "http://127.0.0.1:18790/v1", "--json"]);
+    expect(JSON.parse(vertex.out)).toMatchObject({ ok: true, kind: "vertex", instanceId: "vertex", changed: ["key", "baseUrl"] });
+    expect(w.writes.at(-1)).toEqual({ path: "/api/config", body: { vertex: { apiKey: KEY, baseUrl: "http://127.0.0.1:18790/v1" } } });
   });
 
   it("refuses a key it cannot read, and a dry run writes nothing", async () => {
@@ -142,7 +145,7 @@ describe("engine list", () => {
   it("shows each engine and which keys are set, never their values", async () => {
     const w = workspace({ configured: { anthropic: true }, available: ["claude"] });
     const listed = await w.run(["engine", "list", "--json"]);
-    expect(JSON.parse(listed.out).keys).toEqual({ claude: true, openai: false, openrouter: false, "openai-compatible": false, xai: false, groq: false, greenference: false, modelgo: false, mistral: false, cerebras: false });
+    expect(JSON.parse(listed.out).keys).toEqual({ claude: true, openai: false, openrouter: false, "openai-compatible": false, xai: false, groq: false, greenference: false, modelgo: false, mistral: false, cerebras: false, vertex: false });
     const human = await w.run(["engine", "list"]);
     expect(human.out).toContain("claude · claudeAgent · available");
     expect(human.out).toContain("Keys set: claude");

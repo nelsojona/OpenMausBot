@@ -32,6 +32,7 @@ const enginesSchema = z.object({
   modelgo: keyOnly.optional(),
   mistral: keyOnly.optional(),
   cerebras: keyOnly.optional(),
+  vertex: z.object({ key: secret, baseUrl: z.union([url, secret]).optional() }).strict().optional(),
   openaiCompatible: z.object({ key: secret, baseUrl: z.union([url, secret]) }).strict().optional(),
 }).strict();
 
@@ -116,7 +117,7 @@ export interface TeamFile {
 }
 
 const ENGINE_KIND: Record<string, string> = {
-  claude: "claude", openai: "openai", openrouter: "openrouter", xai: "xai", groq: "groq", greenference: "greenference", modelgo: "modelgo", mistral: "mistral", cerebras: "cerebras",
+  claude: "claude", openai: "openai", openrouter: "openrouter", xai: "xai", groq: "groq", greenference: "greenference", modelgo: "modelgo", mistral: "mistral", cerebras: "cerebras", vertex: "vertex",
   openaiCompatible: "openai-compatible",
 };
 
