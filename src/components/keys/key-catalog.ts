@@ -19,7 +19,7 @@ export const KEY_SECTIONS: ReadonlyArray<{ id: KeySectionId; titleKey: LocaleKey
   { id: "helpers", titleKey: "keys.section.helpers", purposeKey: "keys.section.helpers.purpose" },
 ];
 
-export type TestableProvider = "anthropic" | "openai" | "openrouter" | "openaiCompat" | "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "treg";
+export type TestableProvider = "anthropic" | "openai" | "openrouter" | "openaiCompat" | "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "vertex" | "treg";
 
 export type DesktopSlot = Parameters<NonNullable<NonNullable<Window["ogb"]>["setCredential"]>>[0];
 export type DesktopSlotOptions = NonNullable<Parameters<NonNullable<NonNullable<Window["ogb"]>["setCredential"]>>[2]>;
@@ -48,7 +48,7 @@ export interface KeyTarget {
 
 export type KeyId =
   | "openai" | "anthropic" | "xai" | "openrouter" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "deepseek" | "opencodeGo" | "opencodeProviders"
-  | "ollama" | "lmStudio" | "openaiCompat" | "liveCalls" | "liveKey" | "elevenlabs" | "fishAudio" | "geminiTts" | "chatterbox" | "box" | "vps" | "onePassword" | "composio" | "treg" | "postiz"
+  | "ollama" | "lmStudio" | "openaiCompat" | "vertex" | "liveCalls" | "liveKey" | "elevenlabs" | "fishAudio" | "geminiTts" | "chatterbox" | "box" | "vps" | "onePassword" | "composio" | "treg" | "postiz"
   | "jev" | "openrouterHelper" | "workersAi" | "customDecider" | "imageOpenai" | "imageGemini" | "imageCustom";
 
 export type KeyMark = { driverKind: string; preset?: ProviderIconPreset } | { icon: LucideIcon };
@@ -135,6 +135,10 @@ export const KEY_CATALOG: readonly KeyEntry[] = [
     words: ["openai-compatible", "openai compatible", "together", "venice", "gemini", "google ai studio", "base url", "server", "endpoint"], mark: { icon: Server }, kind: "key",
     target: { patch: (value) => ({ openaiCompat: { key: value } }), slot: "openaiCompatApiKey", saved: (config) => flag(config.openaiCompat), placeholder: "…", placeholderKey: "keys.openaiCompat.placeholder",
       href: "https://platform.openai.com/docs/api-reference", test: "openaiCompat", testAt: (config) => config.openaiCompat?.url, analytics: "openai_compat" } },
+  { id: "vertex", section: "servers", labelKey: "keys.vertex.label", purposeKey: "keys.purpose.vertex", name: "Vertex AI", env: ["OMB_VERTEX_API_KEY", "OMB_VERTEX_URL"],
+    words: ["vertex", "vertex ai", "gcp", "google cloud", "proxy"], mark: provider("vertex", "google"), kind: "key",
+    target: { patch: (value) => ({ vertex: { apiKey: value } }), slot: "vertexApiKey", saved: (config) => flag(config.vertex), placeholder: "local-vertex-proxy", placeholderKey: "keys.vertex.placeholder",
+      test: "vertex", testAt: (config) => config.vertex?.baseUrl, analytics: "vertex" } },
   { id: "liveCalls", section: "voice", labelKey: "call.live.key", purposeKey: "keys.purpose.liveCalls", name: "OpenAI", env: [],
     words: ["openai", "live calls", "calls", "voice", "talk", "gpt-live", "read aloud", "speech", "tts"], mark: { icon: Phone }, kind: "uses", uses: "openai" },
   { id: "liveKey", section: "voice", labelKey: "keys.label.liveKey", purposeKey: "keys.purpose.liveKey", name: "OpenAI", env: ["OMB_OPENAI_LIVE_KEY"],
@@ -288,7 +292,7 @@ export function looksLikeOtherKey(entry: KeyEntry, value: string): KeyEntry | nu
 
 const INSTANCE_KEYS: Readonly<Record<string, KeyId>> = {
   openai: "openai", claudeApi: "anthropic", xaiApi: "xai", grok: "xai", openrouter: "openrouter", mistral: "mistral", cerebras: "cerebras",
-  groq: "groq", greenference: "greenference", modelgo: "modelgo", meta: "meta", deepseek: "deepseek", opencodeGo: "opencodeGo", openaiCompat: "openaiCompat",
+  groq: "groq", greenference: "greenference", modelgo: "modelgo", meta: "meta", vertex: "vertex", deepseek: "deepseek", opencodeGo: "opencodeGo", openaiCompat: "openaiCompat",
 };
 
 export function keyForInstance(instanceId: string | undefined): KeyId | undefined {
