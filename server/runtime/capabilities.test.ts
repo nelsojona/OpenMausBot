@@ -42,6 +42,7 @@ const EXPECTED: Record<string, EngineCapabilities> = {
   greenference: chat,
   modelgo: chat,
   meta: chat,
+  vertex: chat,
 };
 
 describe("engineCapabilities", () => {
