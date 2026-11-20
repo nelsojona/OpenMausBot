@@ -1,19 +1,19 @@
 // OpenRouter's catalog is public, so /key proves the key there; elsewhere /models proves only catalog access. Keys go only over TLS (or loopback).
 import { isIP } from "node:net";
 
-export type ProviderKeyKind = "anthropic" | "openai" | "openrouter" | "openaiCompat" | "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta";
+export type ProviderKeyKind = "anthropic" | "openai" | "openrouter" | "openaiCompat" | "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "vertex";
 
 export type ProviderKeyVerdict =
   /** `freeTier`: OpenRouter's /key says the account never bought credit, so paid models refuse it. */
   | { ok: true; check: "authentication" | "models"; models: string[]; freeTier?: boolean }
   | { ok: false; reason: "rejected" | "unreachable" | "unexpected"; status?: number };
 
-export const PROVIDER_KEY_KINDS: readonly ProviderKeyKind[] = ["anthropic", "openai", "openrouter", "openaiCompat", "xai", "mistral", "cerebras", "groq", "greenference", "modelgo", "meta"];
+export const PROVIDER_KEY_KINDS: readonly ProviderKeyKind[] = ["anthropic", "openai", "openrouter", "openaiCompat", "xai", "mistral", "cerebras", "groq", "greenference", "modelgo", "meta", "vertex"];
 
-/** What a paired phone may write per provider: a key, never a URL (`openaiCompat` carries one, so it is absent). */
+/** What a paired phone may write per provider: a key, never a URL (`openaiCompat` and `vertex` carry one, so they are absent). */
 const PHONE_KEY_FIELDS: Readonly<Record<string, Readonly<Record<string, "string" | "boolean">>>> = {
   anthropic: { key: "string", everyClaudeBot: "boolean" },
-  ...Object.fromEntries(PROVIDER_KEY_KINDS.filter((kind) => kind !== "anthropic" && kind !== "openaiCompat").map((kind) => [kind, { key: "string" }])),
+  ...Object.fromEntries(PROVIDER_KEY_KINDS.filter((kind) => kind !== "anthropic" && kind !== "openaiCompat" && kind !== "vertex").map((kind) => [kind, { key: "string" }])),
 };
 
 /** True when `body` sets only provider keys, so a paired phone's config write cannot widen into anything else. */
@@ -39,6 +39,7 @@ const DEFAULT_URLS: Record<ProviderKeyKind, string> = {
   greenference: "https://llm.eu.greenference.com/v1",
   modelgo: "https://api.modelgo.ai/v1",
   meta: "https://api.meta.ai/v1",
+  vertex: "http://127.0.0.1:18790/v1",
 };
 
 const MAX_MODELS = 5;
