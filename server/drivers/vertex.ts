@@ -1,3 +1,4 @@
+import { tmpdir } from "node:os";
 import { z } from "zod";
 import type { ModelCatalog, ProviderDriver } from "../contracts.ts";
 import { openStartupModelCatalog, unconfirmedModelCatalog, writeStartupModelCache } from "../startup-model-catalog.ts";
@@ -217,10 +218,19 @@ const timedOut = (error: unknown) =>
   (error as { name?: unknown } | undefined)?.name === "TimeoutError"
   || /\btimed? out\b/i.test(error instanceof Error ? error.message : String(error));
 
+function isTempDataDir(): boolean {
+  const raw = process.env.OMB_DATA_DIR?.trim();
+  if (!raw) return false;
+  const tmp = tmpdir();
+  return raw.startsWith(tmp) || raw.startsWith(`/private${tmp}`) || raw.startsWith("/tmp/") || raw.startsWith("/private/tmp/");
+}
+
 function defaultProbeDisabled(baseUrl: string): boolean {
   if (baseUrl !== VERTEX_DEFAULT_BASE_URL) return false;
-  if (process.env.OMB_VERTEX_URL?.trim()) return false;
-  return process.env.OMB_DISABLE_DEFAULT_VERTEX_PROBE === "1" || process.env.OMB_TEST_SEALED_PATH === "1";
+  if (process.env.OMB_VERTEX_URL?.trim() || process.env.OMB_ALLOW_DEFAULT_VERTEX_PROBE === "1") return false;
+  if (process.env.OMB_CLOUD_ROLE === "home" || process.env.OMB_CLOUD_ROLE === "team") return true;
+  if (process.env.OMB_DISABLE_DEFAULT_VERTEX_PROBE === "1" || process.env.OMB_TEST_SEALED_PATH === "1") return true;
+  return isTempDataDir();
 }
 
 export async function probeVertexHealth(
