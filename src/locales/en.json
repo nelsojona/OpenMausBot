@@ -12110,5 +12110,14 @@
   "server.github.card.clone": "{bot} couldn't clone {repo}: GitHub isn't connected.",
   "server.github.card.fetch": "{bot} couldn't fetch from {repo}: GitHub isn't connected.",
   "server.github.card.description": "Connect GitHub so {bot} can push its work to your repositories.",
-  "server.github.card.connectInApps": "Connect GitHub from this card in the app on your computer, or in Apps."
+  "server.github.card.connectInApps": "Connect GitHub from this card in the app on your computer, or in Apps.",
+  "model.effort.minimal": "Minimal",
+  "keys.vertex.label": "Vertex AI proxy token (optional)",
+  "keys.vertex.placeholder": "Optional bearer token (default: local-vertex-proxy)",
+  "keys.purpose.vertex": "Local Vertex AI proxy on this computer (optional custom address or token).",
+  "keys.vertex.url": "Vertex proxy base URL (optional)",
+  "keys.vertex.urlHint": "Leave blank to use http://127.0.0.1:18790/v1. Real GCP credentials stay in vertex-grok-proxy.",
+  "engineSetup.vertex.connected": "Connected to the local Vertex AI proxy ({url}).",
+  "engineSetup.vertex.proxyOptions": "Proxy address and token (optional)",
+  "settings.ai.vertexProxyStopped": "Local proxy not running"
 }

@@ -57,6 +57,7 @@ function keyProviders(config: ConfigStatus): KeyProvider[] {
     [config.greenference?.configured, "greenference"],
     [config.modelgo?.configured, "modelgo"],
     [config.meta?.configured, "meta"],
+    [config.vertex?.configured, "vertex"],
     [config.box?.configured && config.box.included !== true, "boat"],
     [config.composio?.configured && config.composio.mode === "self-hosted", "composio"],
     [config.opencodeGo?.configured, "opencode_go"],
