@@ -220,6 +220,8 @@ export function ProviderMark({ driverKind, size, className }: IconProps & { driv
       return <GreenferenceMark size={size} className={className} />;
     case "modelgo":
       return <ModelgoMark size={size} className={className} />;
+    case "vertex":
+      return <PresetProviderMark preset="google" size={size} className={className} />;
     default:
       return (
         <span className={cn("flex size-full items-center justify-center text-[10px] font-semibold tracking-tight text-ink-secondary", className)}>

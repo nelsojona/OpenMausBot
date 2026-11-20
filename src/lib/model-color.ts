@@ -50,7 +50,7 @@ const DRIVER_FAMILIES: ReadonlyArray<readonly [RegExp, string]> = [
   [/codex|openai/i, "openai"],
   [/grok|xai/i, "xai"],
   [/opencode/i, "opencode"],
-  [/gemini|antigravity/i, "google"],
+  [/gemini|antigravity|vertex/i, "google"],
   [/qwen/i, "qwen"],
   [/kimi/i, "kimi"],
   [/mistral/i, "mistral"],
