@@ -10,6 +10,7 @@ export const CREDENTIAL_PATCH = {
   greenferenceApiKey: (value) => ({ greenference: { key: value } }),
   modelgoApiKey: (value) => ({ modelgo: { key: value } }),
   metaApiKey: (value) => ({ meta: { key: value } }),
+  vertexApiKey: (value) => ({ vertex: { apiKey: value } }),
   deepseekApiKey: (value) => ({ deepseek: { key: value } }),
   openaiCompatApiKey: (value) => ({ openaiCompat: { key: value } }),
   composioApiKey: (value) => ({ composio: { apiKey: value } }),
