@@ -10,6 +10,7 @@ export const WORKSPACE_CREDENTIALS = [
   { section: "greenference", field: "key", name: "greenferenceApiKey", env: "OMB_GREENFERENCE_API_KEY" },
   { section: "modelgo", field: "key", name: "modelgoApiKey", env: "OMB_MODELGO_API_KEY" },
   { section: "meta", field: "key", name: "metaApiKey", env: "OMB_META_API_KEY" },
+  { section: "vertex", field: "apiKey", name: "vertexApiKey", env: "OMB_VERTEX_API_KEY" },
   { section: "deepseek", field: "key", name: "deepseekApiKey", env: "OMB_DEEPSEEK_API_KEY" },
   { section: "openaiCompat", field: "key", name: "openaiCompatApiKey", env: "OPENAI_COMPAT_API_KEY" },
   { section: "xai", field: "key", name: "xaiApiKey", env: "XAI_API_KEY" },
