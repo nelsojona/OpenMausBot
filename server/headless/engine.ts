@@ -18,6 +18,7 @@ export const ENGINE_KINDS: Record<string, { config: string; instance: string; ap
   modelgo: { config: "modelgo", instance: "modelgo", baseUrl: "no" },
   mistral: { config: "mistral", instance: "mistral", baseUrl: "no" },
   cerebras: { config: "cerebras", instance: "cerebras", baseUrl: "no" },
+  vertex: { config: "vertex", instance: "vertex", baseUrl: "allowed" },
 };
 
 /** Never from the command line itself. */
@@ -78,12 +79,14 @@ export async function applyEngine(client: HeadlessClient, request: EngineRequest
   const configured = status.configured === true;
   const patch: Rec = {};
   const changed: string[] = [];
+  const keyField = kind.config === "vertex" ? "apiKey" : "key";
+  const urlField = kind.config === "vertex" ? "baseUrl" : "url";
   if (!configured || request.rotate) {
-    patch.key = request.key;
+    patch[keyField] = request.key;
     changed.push("key");
-    if (request.baseUrl !== undefined) { patch.url = request.baseUrl; changed.push("baseUrl"); }
-  } else if (request.baseUrl !== undefined && typeof status.url === "string" && status.url !== request.baseUrl) {
-    patch.url = request.baseUrl;
+    if (request.baseUrl !== undefined) { patch[urlField] = request.baseUrl; changed.push("baseUrl"); }
+  } else if (request.baseUrl !== undefined && typeof status[urlField] === "string" && status[urlField] !== request.baseUrl) {
+    patch[urlField] = request.baseUrl;
     changed.push("baseUrl");
   }
   if (request.kind === "claude" && (patch.key !== undefined || status.everyClaudeBot !== !request.onlyClaudeApi)) {
@@ -91,7 +94,7 @@ export async function applyEngine(client: HeadlessClient, request: EngineRequest
     if (status.everyClaudeBot !== !request.onlyClaudeApi) changed.push("everyClaudeBot");
   }
   // The address of a key already set is never shown, so --base-url cannot be compared with it.
-  const unverified = configured && !request.rotate && request.baseUrl !== undefined && typeof status.url !== "string";
+  const unverified = configured && !request.rotate && request.baseUrl !== undefined && typeof status[urlField] !== "string";
   const result: Rec = { ok: true, kind: request.kind, instanceId, configured: configured || changed.includes("key"), changed, ...(request.dryRun ? { dryRun: true } : {}),
     ...(unverified ? { warnings: [`${request.kind} already has a key and the server does not show its base URL, so --base-url was not written: pass --rotate to write both`] } : {}) };
   if (request.dryRun) return result;
