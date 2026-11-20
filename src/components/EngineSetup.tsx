@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { AlertTriangle, Check, Copy, Download, ExternalLink, KeyRound, Loader2, LogIn, TerminalSquare, X } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { AlertTriangle, Check, ChevronRight, Copy, Download, ExternalLink, KeyRound, Loader2, LogIn, TerminalSquare, X } from "lucide-react";
 import { api, ApiError, type InstanceInfo, useStore } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { useSignInStarted } from "@/lib/connect-ai-events";
@@ -17,6 +17,7 @@ export { installCommandFor };
 import { keyEntry, keyForInstance, type KeyId } from "./keys/key-catalog";
 import { openKeySettings } from "./keys/key-focus";
 import { KeyRow, SavedKeyLine } from "./keys/KeyRow";
+import { VertexProxyUrl } from "./keys/KeyPanels";
 import { OllamaStatusLine } from "./OllamaStatusLine";
 
 export function needsSignIn(instance: InstanceInfo | undefined): boolean {
@@ -440,6 +441,7 @@ export function hasSavedApiKey(instance: InstanceInfo): boolean {
 }
 
 function apiKeySetup(instance: InstanceInfo): boolean {
+  if (instance.driverKind === "vertex") return false;
   if (!(isApiKeyEngine(instance) || instance.install?.settings === "connections") || instance.snapshot.authenticationUnavailableReason || instance.serverKind === "ollama") return false;
   // A key engine with its own CLI (DeepSeek Harness) is installed first, then given the key.
   if (instance.snapshot.state !== "available") return !installCommandFor(instance.install);
@@ -545,7 +547,64 @@ function CheckEnginesAgain() {
   );
 }
 
+function VertexEngineSetup({ instance, className, unframed, ready = false }: { instance: InstanceInfo; className?: string; unframed: boolean; ready?: boolean }) {
+  const { state } = useStore();
+  const remote = window.ogb?.remoteClient?.active === true;
+  const rejected = needsSignIn(instance);
+  const [advancedOpen, setAdvancedOpen] = useState(
+    rejected || Boolean(state.config?.vertex?.baseUrl) || Boolean(state.config?.vertex?.configured),
+  );
+  const panelId = useId();
+  const activeUrl = state.config?.vertex?.baseUrl || "http://127.0.0.1:18790/v1";
+
+  return (
+    <div data-engine-setup-vertex={ready ? "ready" : "setup"} className={cn(!unframed && "rounded-xl border border-hairline/40 bg-control/30 p-3", className)}>
+      {ready ? (
+        <p className="text-[13px] leading-[18px] text-ink-secondary">
+          {t("engineSetup.vertex.connected", { url: activeUrl })}
+        </p>
+      ) : (
+        <>
+          <div className="text-[13px] font-medium leading-[18px] text-ink">
+            {t("engineSetup.notReady", { name: engineDisplayName(instance) })}
+          </div>
+          {rejected ? (
+            <p role="alert" className="mt-1 text-[12px] leading-4 text-danger">{t("engineSetup.apiKey.rejected")}</p>
+          ) : (
+            <p className="mt-1 text-[12px] leading-4 text-ink-secondary">
+              {instance.snapshot.reason ?? t("engineSetup.noReason")}
+            </p>
+          )}
+        </>
+      )}
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <CheckEnginesAgain />
+        {!remote && (
+          <button
+            type="button"
+            data-vertex-proxy-toggle
+            aria-expanded={advancedOpen}
+            aria-controls={panelId}
+            onClick={() => setAdvancedOpen((open) => !open)}
+            className="inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-[12px] leading-4 text-ink-secondary transition-colors hover:bg-ink/[0.06] hover:text-ink motion-reduce:transition-none"
+          >
+            <ChevronRight size={14} aria-hidden="true" className={cn("shrink-0 transition-transform motion-reduce:transition-none", advancedOpen && "rotate-90")} />
+            <span>{t("engineSetup.vertex.proxyOptions")}</span>
+          </button>
+        )}
+      </div>
+      {!remote && (
+        <div id={panelId} hidden={!advancedOpen} className="mt-3 flex flex-col gap-3 border-t border-hairline/40 pt-3">
+          <VertexProxyUrl />
+          <KeyRow id="vertex" bare via="settings" rejected={rejected} className="px-0 pb-0" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ApiKeyEngineManage({ instance, className }: { instance: InstanceInfo; className?: string }) {
+  if (instance.driverKind === "vertex") return <VertexEngineSetup instance={instance} className={className} unframed={false} ready />;
   if (!hasSavedApiKey(instance)) return null;
   return <ApiKeyEngineSetup instance={instance} className={className} unframed={false} configured />;
 }
@@ -618,6 +677,10 @@ export function EngineSetup({
         <p className="mt-1 text-[12px] leading-relaxed text-ink-secondary">{t("remote.client.setUpOnHost", { name: instance.displayName })}</p>
       </div>
     );
+  }
+
+  if (instance.driverKind === "vertex") {
+    return <VertexEngineSetup instance={instance} className={className} unframed={unframed} />;
   }
 
   if (apiKeySetup(instance)) {

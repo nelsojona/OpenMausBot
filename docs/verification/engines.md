@@ -93,6 +93,14 @@ visible while engine status is unavailable and retains setup when there is
 no conversation. These checks do not prove a real provider's login or a
 packaged Windows window.
 
+## Vertex AI proxy setup
+
+```sh
+pnpm exec vitest run server/drivers/vertex.test.ts server/provider-key-check.test.ts src/components/keys/key-catalog.test.ts src/components/keys/key-save.test.ts
+```
+
+These use an in-process loopback HTTP stand-in for `vertex-grok-proxy` (`http://127.0.0.1:18790/v1`). They check zero-config loopback discovery, `/healthz` availability states, `/v1/models` catalog persistence (`providers/engine-models/vertex.json`), per-family reasoning effort enforcement, Gemini `tool_calls[].extra_content.google.thought_signature` round-tripping, and 401/429/404 handling without touching live GCP endpoints.
+
 ## Groq API setup
 
 ```sh
