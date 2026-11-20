@@ -38,6 +38,7 @@ export interface ConfigStatus {
   openai?: SavedKey;
   openrouter?: SavedKey;
   openaiCompat?: SavedKey & { url?: string };
+  vertex?: SavedKey & { baseUrl?: string };
   /** what this server is entitled to; Settings shows only what works here.
    * `license` reaches admins only, and only while the key is inside its
    * warning window or grace period. */
