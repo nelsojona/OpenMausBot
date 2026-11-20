@@ -182,7 +182,6 @@ export function OpenAiCompatUrl() {
     </div>
   );
 }
-
 /** Exposes tts.baseUrl in AI › Other services so stale voice server addresses can be viewed, changed, or cleared. */
 export function VoiceServerUrl() {
   const state = useStoreSelector((s) => ({ config: s.config }), sameFields),
@@ -236,6 +235,54 @@ export function VoiceServerUrl() {
           </button>
         )}
       </div>
+      {error && <div role="alert" className="text-[12px] leading-4 text-danger">{error}</div>}
+    </div>
+  );
+}
+
+export function VertexProxyUrl() {
+  const { state, dispatch, refreshInstances } = useStore();
+  const saved = state.config?.vertex?.baseUrl ?? "";
+  const [value, setValue] = useState(saved);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const savingRef = useRef(false);
+  useEffect(() => { setValue(saved); }, [saved]);
+  const dirty = value.trim() !== saved;
+
+  const save = () => {
+    if (savingRef.current || !dirty) return;
+    savingRef.current = true;
+    setSaving(true);
+    setError(null);
+    api("/api/config", { method: "PUT", body: JSON.stringify({ vertex: { baseUrl: value.trim() } }) })
+      .then((status: ConfigStatus) => {
+        dispatch({ type: "configStatus", config: status });
+        return refreshInstances();
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => { savingRef.current = false; setSaving(false); });
+  };
+
+  return (
+    <div data-vertex-proxy-url className="flex flex-col gap-1.5">
+      <div className="text-[13px] leading-[18px] text-ink">{t("keys.vertex.url")}</div>
+      <div className="relative">
+        <input
+          type="url"
+          dir="auto"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => e.key === "Enter" && save()}
+          placeholder="http://127.0.0.1:18790/v1"
+          aria-label={t("keys.vertex.url")}
+          spellCheck={false}
+          className={cn(KEY_FIELD, "pe-8")}
+        />
+        {saving && <Loader2 size={13} aria-hidden="true" className="absolute end-2.5 top-1/2 -translate-y-1/2 animate-spin text-ink-secondary" />}
+      </div>
+      <p className="text-[12px] leading-4 text-ink-secondary">{t("keys.vertex.urlHint")}</p>
       {error && <div role="alert" className="text-[12px] leading-4 text-danger">{error}</div>}
     </div>
   );
