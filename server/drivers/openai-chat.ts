@@ -111,7 +111,7 @@ interface RuntimeOptions<Config> {
   billing?: "metered";
   includeUsageInCompleted?: boolean;
   noBodyError?: string;
-  retryScale?: number;
+  retryScale?: number; fetch?: typeof fetch;
   tools?: boolean;
   computerUse?: boolean;
   /** A text-only model keeps the computer and browser tools but never receives a screenshot or attachment. */
@@ -281,7 +281,7 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
           ...(route === "chat-reasoning-off" ? (options.reasoningOffBody?.(served) ?? { reasoning_effort: "none" }) : {}),
           ...(tools.length ? { tools } : {}),
         });
-      const send = options.timeoutMs > FETCH_LIMIT_MS ? fetchPastLimit : fetch;
+      const send = options.fetch ?? (options.timeoutMs > FETCH_LIMIT_MS ? fetchPastLimit : fetch);
       const response = await send(`${options.apiUrl}/${route === "responses" ? "responses" : "chat/completions"}`, {
         method: "POST",
         ...(messages.some(message => Array.isArray(message.content) && message.content.some(part => part.type === "image_url")) ? { redirect: "error" as const } : {}),
