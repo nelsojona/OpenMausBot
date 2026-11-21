@@ -164,6 +164,12 @@ describe("Apps pop-up", () => {
     expect(html).toContain('data-hosted-app="agentcard"');
     expect(html.match(/data-hosted-app="/g)).toHaveLength(1);
   });
+  it.each(["tradingview", "candlesticks", "ohlcv", "watchlists"])("finds TradingView by %s and shows no other hosted card", (word) => {
+    fixture.overrides.set(SEARCH, word);
+    const html = render().html;
+    expect(html).toContain('data-hosted-app="tradingview"');
+    expect(html.match(/data-hosted-app="/g)).toHaveLength(1);
+  });
   it("counts Whop and Agentcard both under Connected", () => {
     fixture.overrides.set(HOSTED_CONNECTED, { whop: true, agentcard: true });
     expect(render().html).toContain("3 connected");

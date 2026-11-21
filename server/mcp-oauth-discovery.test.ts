@@ -64,6 +64,43 @@ describe("discoverMcpAuth", () => {
     });
   });
 
+  it("discovers TradingView's cross-origin authorization server and registration endpoint", async () => {
+    const { impl } = stubFetch({
+      "https://mcp.tradingview.com/.well-known/oauth-protected-resource/mcp": {
+        resource: "https://mcp.tradingview.com/mcp",
+        authorization_servers: ["https://www.tradingview.com"],
+        bearer_methods_supported: ["header"],
+      },
+      "https://www.tradingview.com/.well-known/oauth-authorization-server": {
+        issuer: "https://www.tradingview.com",
+        authorization_endpoint: "https://www.tradingview.com/mcp/oauth/authorize",
+        token_endpoint: "https://www.tradingview.com/mcp/oauth/token",
+        registration_endpoint: "https://www.tradingview.com/mcp/oauth/register",
+        revocation_endpoint: "https://www.tradingview.com/mcp/oauth/revoke",
+        response_types_supported: ["code"],
+        grant_types_supported: ["authorization_code", "refresh_token"],
+        token_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"],
+        code_challenge_methods_supported: ["S256"],
+        scopes_supported: ["mcp:read", "mcp:tools"],
+      },
+    });
+    const meta = await discoverMcpAuth(
+      "https://mcp.tradingview.com/mcp",
+      'Bearer resource_metadata="https://mcp.tradingview.com/.well-known/oauth-protected-resource/mcp"',
+      { fetch: impl },
+    );
+    expect(meta).toEqual({
+      issuer: "https://www.tradingview.com",
+      authorizationEndpoint: "https://www.tradingview.com/mcp/oauth/authorize",
+      tokenEndpoint: "https://www.tradingview.com/mcp/oauth/token",
+      registrationEndpoint: "https://www.tradingview.com/mcp/oauth/register",
+      revocationEndpoint: "https://www.tradingview.com/mcp/oauth/revoke",
+      tokenEndpointAuthMethods: ["none", "client_secret_basic", "client_secret_post"],
+      resource: "https://mcp.tradingview.com/mcp",
+      source: "protected-resource",
+    });
+  });
+
   it("falls back to the well-known protected-resource path, then the origin", async () => {
     const { impl, asked } = stubFetch({
       "https://mcp.example.com/.well-known/oauth-protected-resource": { authorization_servers: ["https://auth.example.com"] },
