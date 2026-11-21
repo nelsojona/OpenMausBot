@@ -51,6 +51,8 @@
   "bubblav.notice": "Sign in with BubblaV and choose one chatbot. No API key needed. With Full access, a bot that can use BubblaV can read that chatbot’s conversations and leads and change or delete its knowledge and settings, so choose which bots get it under Bot access. Choose Read only on BubblaV’s consent page to block every change.",
   "higgsfield.description": "AI images and videos your bots make with Higgsfield models, on your own Higgsfield account.",
   "higgsfield.notice": "Sign in with your Higgsfield account. No API key needed. A bot that can use Higgsfield can start image and video generations that spend credits on your account, so choose which bots get it under Bot access.",
+  "tradingview.description": "Market data, charts, indicators, screeners, watchlists and price alerts on your own TradingView account.",
+  "tradingview.notice": "Sign in with your TradingView account (Essential plan or higher; TradingView does not include MCP on free or trial plans). No API key needed. A bot that can use TradingView can read market data and create, edit or delete watchlists and price alerts on your account, so choose which bots get it under Bot access.",
   "email.title": "Email",
   "email.description": "Read and send mail on any mail host, with your address and password.",
   "email.menu": "Email options",
