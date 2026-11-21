@@ -1,4 +1,4 @@
-import { Clapperboard, CreditCard, Mail, PhoneCall, RadioTower, Smartphone, type LucideIcon } from "lucide-react";
+import { ChartCandlestick, Clapperboard, CreditCard, Mail, PhoneCall, RadioTower, Smartphone, type LucideIcon } from "lucide-react";
 
 import bubblavLogo from "@/assets/bubblav/logo.png";
 import whopLogo from "@/assets/whop/logo.png";
@@ -103,6 +103,16 @@ export const HOSTED_MCP_APPS = [
     description: "higgsfield.description",
     notice: "higgsfield.notice",
     keywords: "higgsfield ai image video generate generation picture clip film soul kling seedance",
+  },
+  {
+    id: "tradingview",
+    label: "TradingView",
+    url: "https://mcp.tradingview.com/mcp",
+    // TradingView's brand guidelines forbid shipping its marks without permission, so a neutral glyph stands in.
+    icon: { glyph: ChartCandlestick },
+    description: "tradingview.description",
+    notice: "tradingview.notice",
+    keywords: "tradingview charts candlesticks stocks crypto forex futures options indicators screeners watchlists alerts ohlcv fundamentals market data",
   },
 ] as const satisfies readonly HostedMcpApp[];
 
