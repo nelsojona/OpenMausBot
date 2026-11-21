@@ -149,6 +149,11 @@ The [Whop fixture](whop.md) checks its one-click setup, cancellation, denied
 consent, discovery failures, reconnect and disconnect using that same registry
 and a synthetic provider, without accessing a real Whop account.
 
+The [TradingView fixture](tradingview.md) checks its one-click card in Plugins,
+OAuth sign-in, cancellation, denied consent, activation switching in MCP
+servers, bot turn tool access with hidden tokens, and disconnect in Midnight and
+Daylight, without accessing a real TradingView account.
+
 The [bot contact cards fixture](bot-contact-cards.md) checks the AgentMail,
 AgentPhone, Vapi and Telnyx cards: a pasted key that is refused, replaced and
 deleted on Disconnect, kept in a header and out of every listing, against a
