@@ -126,6 +126,22 @@ key named **MCP Client** under **Settings → API Keys**, where revoking it ends
 the connection. The key lasts one year, then the card asks you to sign in
 again. See [BubblaV's OpenMausBot guide](https://docs.bubblav.com/user-guide/integrations/openmausbot).
 
+### TradingView
+
+In Plugins, find **TradingView** and click **Connect**. The card uses
+TradingView's official hosted MCP endpoint, `https://mcp.tradingview.com/mcp`,
+and opens TradingView's OAuth 2.1 browser sign-in. No API key is needed.
+TradingView includes MCP access on **Essential plans and higher** (free and
+trial plans do not include it). After sign-in and tool discovery it enables the
+connection, and **Disconnect**, **Bot access** and the **Plugins → MCP servers**
+switch work as they do for Whop. Existing custom entries at the official HTTP
+endpoint are recognized rather than replaced.
+
+A bot that can use TradingView can read quotes, OHLCV bars, technical
+indicators, screeners, fundamentals, news and economic calendars, and can
+create, edit or delete watchlists and price alerts on your TradingView account,
+so choose which bots get it under **Bot access**.
+
 ### Servers that ask you to sign in
 
 Some URL servers take no token; they want you to sign in with your browser
