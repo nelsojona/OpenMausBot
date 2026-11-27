@@ -2997,6 +2997,8 @@
   "chat.queue.removeYours": "Remove your waiting message",
   "chat.queue.yoursWaiting": "Yours: {text}",
   "chat.teammatesWorking": "Teammates working",
+  "chat.soulDriftNotice": "SOUL.md was edited on disk, but those changes are not in effect yet.",
+  "chat.soulDriftReview": "Review",
   "chat.friendly.thinking": "Thinking it through",
   "chat.friendly.mulling": "Mulling it over",
   "chat.friendly.working": "Working on it",

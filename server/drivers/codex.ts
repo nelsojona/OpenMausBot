@@ -1040,8 +1040,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
                 }
               }
             } else if (item.type === "reasoning" || item.type === "contextCompaction") {
-              if (item.type === "contextCompaction" && codexThreadId) resetCodexInstructionReceipt(threadId, codexThreadId);
-              emit(item.type === "reasoning" ? { ...base(threadId, turnId), type: "item.updated", itemType: "reasoning", tokens: null } : { ...base(threadId, turnId), type: "context.compacted" });
+              if (item.type === "contextCompaction" && codexThreadId) resetCodexInstructionReceipt(threadId, codexThreadId); emit(item.type === "reasoning" ? { ...base(threadId, turnId), type: "item.updated", itemType: "reasoning", tokens: null } : { ...base(threadId, turnId), type: "context.compacted" });
             }
             break;
           }
