@@ -1,7 +1,7 @@
 // Codex owns history; this receipt only remembers which bot rules and which
 // volatile context digest the native thread last carried.
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { DATA_DIR } from "../config.ts";
 import { writeFileAtomic } from "../atomic.ts";
@@ -70,6 +70,16 @@ export function codexDeveloperInstructions(config: unknown, botInstructions: str
     : botInstructions;
 }
 
+const receiptPath = (key: string, nativeThreadId: string) =>
+  join(DATA_DIR, "codex-instructions", `${digest(JSON.stringify([key, nativeThreadId]))}.sha256`);
+
+/** Clears the receipt after native or manual compaction so the next turn re-injects developer instructions and volatile memory. */
+export function resetCodexInstructionReceipt(key: string, nativeThreadId: string): void {
+  try {
+    rmSync(receiptPath(key, nativeThreadId), { force: true });
+  } catch {}
+}
+
 export async function syncCodexInstructions(
   key: string,
   nativeThreadId: string,
@@ -80,7 +90,7 @@ export async function syncCodexInstructions(
   mentionTurn = false,
 ): Promise<{ deliverVolatile: boolean; hadVolatile: boolean; commitVolatile: (() => void) | null }> {
   const directory = join(DATA_DIR, "codex-instructions");
-  const path = join(directory, `${digest(JSON.stringify([key, nativeThreadId]))}.sha256`);
+  const path = receiptPath(key, nativeThreadId);
   const fingerprint = digest(instructions);
   const volatileFingerprint = digest(volatile);
   let previous: CodexInstructionReceipt | null;

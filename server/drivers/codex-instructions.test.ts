@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { DATA_DIR } from "../config.ts";
-import { CODEX_LINUX_SANDBOX_NOTE, codexDeveloperInstructions, codexSandboxNote, syncCodexInstructions } from "./codex-instructions.ts";
+import { CODEX_LINUX_SANDBOX_NOTE, codexDeveloperInstructions, codexSandboxNote, resetCodexInstructionReceipt, syncCodexInstructions } from "./codex-instructions.ts";
 import { customApprovalParams, namedApprovalParams } from "./codex-approval-config.ts";
 
 const receiptPath = (key: string, nativeThreadId: string) =>
@@ -162,5 +162,21 @@ describe("Codex instruction receipts", () => {
     const after = await syncCodexInstructions(key, "native", "rules", "memory v1", true, request);
     expect(after.deliverVolatile).toBe(false);
     expect(after.commitVolatile).toBeNull();
+  });
+
+  it("re-injects developer instructions and volatile memory after resetCodexInstructionReceipt", async () => {
+    const key = randomUUID();
+    const request = vi.fn().mockResolvedValue({});
+    const first = await syncCodexInstructions(key, "native", "rules", "memory v1", false, request);
+    first.commitVolatile?.();
+    const steady = await syncCodexInstructions(key, "native", "rules", "memory v1", true, request);
+    expect(steady.deliverVolatile).toBe(false);
+    expect(request).not.toHaveBeenCalled();
+
+    resetCodexInstructionReceipt(key, "native");
+    const afterCompact = await syncCodexInstructions(key, "native", "rules", "memory v1", true, request);
+    expect(afterCompact.deliverVolatile).toBe(true);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0]![0]).toBe("thread/inject_items");
   });
 });

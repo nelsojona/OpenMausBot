@@ -2332,6 +2332,46 @@ process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n');});`)
     expect(instance.adapter.capabilities.nativeCompaction).toBe(true);
   });
 
+  it("resets the instruction receipt on contextCompaction so the next turn re-sends volatile memory", async () => {
+    const dump1 = join(scratch, "compact-volatile-1.json");
+    const dump2 = join(scratch, "compact-volatile-2.json");
+    process.env.FAKE_CODEX_COMPACTION = "1";
+    process.env.FAKE_CODEX_DUMP = dump1;
+    try {
+      await create({ mode: "resume" });
+      const first = await instance.adapter.sendTurn({
+        threadId: "t-compact-volatile",
+        text: "first turn",
+        system: "Always cite sources.\n\nMemory: reply in Spanish.",
+        systemStable: "Always cite sources.",
+        systemVolatile: "Memory: reply in Spanish.",
+      });
+      await recorder.until((e) => e.type === "turn.completed" && e.turnId === first.turnId);
+      const started = recorder.events.find((e) => e.type === "session.started" && e.threadId === "t-compact-volatile") as { sessionId: string } | undefined;
+      expect(started?.sessionId).toBeTruthy();
+
+      delete process.env.FAKE_CODEX_COMPACTION;
+      process.env.FAKE_CODEX_DUMP = dump2;
+      const second = await instance.adapter.sendTurn({
+        threadId: "t-compact-volatile",
+        text: "second turn",
+        resumeCursor: started!.sessionId,
+        system: "Always cite sources.\n\nMemory: reply in Spanish.",
+        systemStable: "Always cite sources.",
+        systemVolatile: "Memory: reply in Spanish.",
+      });
+      await recorder.until((e) => e.type === "turn.completed" && e.turnId === second.turnId);
+    } finally {
+      delete process.env.FAKE_CODEX_COMPACTION;
+      delete process.env.FAKE_CODEX_DUMP;
+    }
+    const calls2 = JSON.parse(readFileSync(dump2, "utf8")).calls as Array<{ method: string; params: Record<string, unknown> }>;
+    const start2 = calls2.find((c) => c.method === "turn/start");
+    expect(start2).toBeDefined();
+    expect(JSON.stringify(start2!.params)).toContain("Memory: reply in Spanish.");
+    expect(calls2.some((c) => c.method === "thread/inject_items")).toBe(true);
+  });
+
   it("streams a running command's output to the bus, and names its app-server while the turn runs", async () => {
     const gate = join(scratch, "command-done");
     Object.assign(process.env, { FAKE_CODEX_COMMAND: "/bin/zsh -lc 'pnpm test'", FAKE_CODEX_COMMAND_OUTPUT: JSON.stringify(["RUN v3\n", " ✓ a.test.ts\n"]), FAKE_CODEX_COMMAND_GATE: gate });
