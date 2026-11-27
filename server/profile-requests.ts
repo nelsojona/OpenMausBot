@@ -357,6 +357,7 @@ export class ProfileRequestService {
     changes: unknown;
     reason: unknown;
     from?: { botId: string; name: string; color: string };
+    untrustedSoulSource?: string;
   }): { requestId: string; messageId: string; title: string; summary: string; detail: string } {
     return this.prepare(args);
   }
@@ -373,6 +374,9 @@ export class ProfileRequestService {
   } {
     const reason = reasonText(args.reason);
     const { changes, soulOps } = parseChanges(args.changes);
+    if (args.untrustedSoulSource && (soulOps !== undefined || changes.soul !== undefined)) {
+      throw new ProfileRequestError(args.untrustedSoulSource, 403);
+    }
 
     const targetBotId = args.targetBotId ?? args.botId;
     const target = this.store.bot(targetBotId);

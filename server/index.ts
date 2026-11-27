@@ -13230,6 +13230,12 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         const owner = connectorThread(from.id, body.fromThreadId);
         if (!owner) return json(res, 403, { error: "source conversation does not belong to sender" });
         const targetBotId = body.forBotId?.trim() || from.id;
+        const untrustedSoulSource =
+          internalCapability.depth > 0 || internalCapability.roomHandoffId
+            ? "Standing instructions cannot be changed from another agent's turn; only a person's direct request may add or edit SOUL.md rules."
+            : internalCapability.externalRuntime || activeRoutineRunForThread(body.fromThreadId) || outsideDrivenThread(body.fromThreadId)
+              ? "Standing instructions cannot be changed from a routine, webhook, or external turn; only a person's direct request may add or edit SOUL.md rules."
+              : undefined;
         const proposed = profileRequests.submit({
           botId: from.id,
           threadId: body.fromThreadId,
@@ -13237,6 +13243,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           changes: body.changes,
           reason: body.reason,
           from: owner.group ? { botId: from.id, name: from.name, color: from.color } : undefined,
+          untrustedSoulSource,
         });
         appendDecision(DATA_DIR, {
           threadId: body.fromThreadId, requestId: proposed.requestId, botId: from.id, botName: from.name,
