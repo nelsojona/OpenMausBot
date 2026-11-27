@@ -854,14 +854,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       if (halves.stable !== null && sessionReady && sessionFile) {
         const receiptKey = JSON.stringify([threadId, sessionFile]);
         const composed = splitSessionPrompt(
-          halves.stable,
-          halves.volatile,
-          readPromptSplitReceipt("pi", receiptKey),
-          turn.system,
-          turn.text,
-          Boolean(turn.mentionTurn),
-          PI_PROMPT_RE_ANCHOR_TURNS,
-          turn.pinnedRulesDigest,
+          halves.stable, halves.volatile, readPromptSplitReceipt("pi", receiptKey),
+          turn.system, turn.text, Boolean(turn.mentionTurn), PI_PROMPT_RE_ANCHOR_TURNS, turn.pinnedRulesDigest,
         );
         message = composed.text;
         pendingReceipt = { key: receiptKey, receipt: composed.receipt };

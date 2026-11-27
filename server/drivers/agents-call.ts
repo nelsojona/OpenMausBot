@@ -688,9 +688,7 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
     if (typeof args.title === "string") changes.title = args.title.trim();
     if (typeof args.description === "string") changes.description = args.description.trim();
     if (Array.isArray(args.soul_ops)) changes.soul_ops = args.soul_ops;
-    else if (args.soul_ops !== undefined) {
-      return { text: "propose_profile soul_ops must be a non-empty array of line operations.", isError: true };
-    }
+    else if (args.soul_ops !== undefined) return { text: "propose_profile soul_ops must be a non-empty array of line operations.", isError: true };
     if (typeof args.soul === "string") changes.soul = args.soul;
     if (typeof args.cwd === "string") changes.cwd = args.cwd.trim();
     if (typeof args.notifications === "boolean") changes.notifications = args.notifications;
@@ -753,9 +751,7 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
         action: args.action,
         text: args.text,
         oldText: args.old_text,
-        ...(typeof args.until === "string" && args.until.trim() ? { until: args.until.trim() } : {}),
-        ...(args.kind === "fact" || args.kind === "rule" ? { kind: args.kind } : {}),
-        ...(args.scope === "thread" || args.scope === "everywhere" ? { scope: args.scope } : {}),
+        ...(typeof args.until === "string" && args.until.trim() ? { until: args.until.trim() } : {}), ...(args.kind === "fact" || args.kind === "rule" ? { kind: args.kind } : {}), ...(args.scope === "thread" || args.scope === "everywhere" ? { scope: args.scope } : {}),
       }),
     });
     if (r.error || r.ok !== true) return { text: String(r.error ?? "Memory update was not confirmed."), isError: true };
