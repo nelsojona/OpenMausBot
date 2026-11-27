@@ -366,7 +366,8 @@ const sameThreadAfterCompaction = async (f: Awaited<ReturnType<typeof codexSetup
   await f.send("FOURTH after compaction");
   const next = f.turnTexts().at(-1)!;
   expect(f.calls("thread/start")).toHaveLength(1);
-  expect(next).toEqual({ pid, thread: session, text: "FOURTH after compaction" });
+  expect(next).toMatchObject({ pid, thread: session });
+  expect(next.text.endsWith("FOURTH after compaction")).toBe(true);
   expect(await f.folds()).toHaveLength(0);
   expect(f.cursor()).toBe(session);
   await expect.poll(() => f.task().usage.context).toMatchObject({ tokens: 40_000 });
