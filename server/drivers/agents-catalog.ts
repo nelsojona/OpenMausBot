@@ -657,7 +657,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "propose_profile",
     description:
-      "Change your own name, title, description, standing instructions (SOUL.md), working folder (cwd), notifications or speakReplies, as the person asked. Keep SOUL.md short: who you are and the rules you never break; put step-by-step procedure in a skill." + CHIEF_PROFILE_TARGET + APPLIES_OUTCOME,
+      "Change your own name, title, description, standing instructions (SOUL.md via soul_ops), working folder (cwd), notifications or speakReplies, as the person asked. Adding a line to SOUL.md applies at once with Undo; replacing or removing an existing line asks the person to confirm." + CHIEF_PROFILE_TARGET + APPLIES_OUTCOME,
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -665,7 +665,21 @@ const TOOL_DEFINITIONS = [
         name: { type: "string", maxLength: 100 },
         title: { type: "string", maxLength: 200 },
         description: { type: "string", maxLength: 4000, description: "One line shown in rosters." },
-        soul: { type: "string", description: "The whole new SOUL.md, at most 24000 bytes." },
+        soul_ops: {
+          type: "array",
+          minItems: 1,
+          description: "Line operations on SOUL.md: add a line, or replace/remove an exact existing line.",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              op: { type: "string", enum: ["add", "replace", "remove"] },
+              match: { type: "string", minLength: 1, description: "Exact existing line to replace or remove." },
+              line: { type: "string", minLength: 1, description: "New line to add or replace with." },
+            },
+            required: ["op"],
+          },
+        },
         cwd: { type: "string", maxLength: 1024, description: "An existing absolute folder for your tools; \"\" = your private workspace." },
         notifications: { type: "boolean", description: "Completion and attention alerts on the host and paired clients." },
         speakReplies: { type: "boolean", description: "Speak replies aloud as they settle." },
