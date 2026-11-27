@@ -35,6 +35,7 @@ vi.mock("./ComputerTab", () => ({ ComputerTab: stub("computer") }));
 vi.mock("./pages", () => ({
   PageBody: ({ page, editingInstructions }: { page: string; editingInstructions?: boolean }) =>
     createElement("div", { "data-stub-page": page, "data-editing-instructions": editingInstructions === true ? "true" : undefined },
+      createElement("section", { "data-panel-card": "instructions" }),
       createElement("section", { "data-panel-card": "approval" })),
   pageSurfaceCls: "",
 }));
@@ -139,11 +140,22 @@ describe("named links into the bot panel", () => {
   });
 
   it("opens Bot settings with the Instructions editor for a soul link, and closes it when the panel moves on", async () => {
+    const scrolled = vi.mocked(HTMLElement.prototype.scrollIntoView);
     openBotSettings(fixture.dispatch, "soul");
     render("soul");
     await settle();
     expect(page()).toBe("settings");
     expect(host.querySelector('[data-stub-page="settings"]')?.getAttribute("data-editing-instructions")).toBe("true");
+    expect(scrolled.mock.contexts).toContain(host.querySelector('[data-panel-card="instructions"]'));
+
+    scrolled.mockClear();
+    flushSync(() => openBotSettings(fixture.dispatch, "soul"));
+    render("soul");
+    await settle();
+    expect(page()).toBe("settings");
+    expect(host.querySelector('[data-stub-page="settings"]')?.getAttribute("data-editing-instructions")).toBe("true");
+    expect(scrolled.mock.contexts).toContain(host.querySelector('[data-panel-card="instructions"]'));
+
     click(host.querySelector("[data-panel-back]"));
     expect([tab(), page()]).toEqual(["details", null]);
     click(host.querySelector("[data-panel-gear]"));

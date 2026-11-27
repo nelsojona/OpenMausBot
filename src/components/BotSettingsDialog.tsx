@@ -25,6 +25,7 @@ import { VisibilitySection } from "./bot-settings/VisibilitySection";
 import { t } from "@/lib/i18n";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { BotPanel } from "./bot-panel/PanelShell";
+import { usePanelLink } from "./bot-panel/panel-link";
 import { LibraryTab } from "./bot-panel/LibraryTab";
 import { BOT_PANEL_ID, sidePanelCls, useSidePanelLeave } from "./bot-panel/side-panel";
 import { HistoryRollbackDialog, useBotHistory, useBotOverview } from "./bot-settings/useBotOverview";
@@ -48,6 +49,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
   const dialogRef = useRef<HTMLElement | null>(null);
   useSidePanelLeave(dialogRef);
   const { dragProps } = useCaptionChrome();
+  const link = usePanelLink();
   const [query, setQuery] = useState("");
   const collapsed = !state.botSettingsExpandAccordion;
   const q = query.trim().toLowerCase();
@@ -76,7 +78,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
     if (q) { setQuery(""); return; }
     dialogRef.current?.querySelector(`[data-bot-settings-section="${section}"]`)
       ?.scrollIntoView({ block: "nearest" });
-  }, [collapsed, section, q]);
+  }, [collapsed, section, q, link]);
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;

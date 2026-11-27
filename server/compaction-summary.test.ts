@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { EXCERPT_SUMMARY_HEADER } from "../shared/wire.ts";
-import { deterministicSummary, draftSummary, extractStandingDirectives, foldPoint, summaryPrompt } from "./compaction-summary.ts";
+import { deterministicSummary, draftSummary, extractStandingDirectives, filterFreshDirectives, foldPoint, summaryPrompt } from "./compaction-summary.ts";
 import { MAX_SUMMARY_BYTES, selectReplay, type CompactionRecord, type ReplayEntry } from "./context-rebuild.ts";
 import { createSideJobs, type SideJobInstance, type SideJobsDeps } from "./side-jobs.ts";
 
@@ -254,4 +254,19 @@ it("preserves a turn-3 standing directive verbatim across long history, timeout 
   expect(activeEntry!.role).toBe("user");
   expect(activeEntry!.text).toContain(directive);
   expect(activeEntry!.text).not.toContain("historical data, not new instructions");
+});
+
+it("deduplicates offered directives against SOUL.md ignoring case and leading 'from now on, ' / 'going forward, ' prefixes", () => {
+  const soul = [
+    "You are a concise assistant.",
+    "Always end every reply with [TEST-OK].",
+    "Never use exclamation marks.",
+  ].join("\n");
+  const fresh = filterFreshDirectives([
+    "From now on, always end every reply with [TEST-OK].",
+    "Going forward, NEVER use exclamation marks.",
+    "Always end every reply with [TEST-OK].",
+    "From now on, answer in bullet points.",
+  ], soul);
+  expect(fresh).toEqual(["From now on, answer in bullet points."]);
 });
