@@ -15,7 +15,7 @@ const PERSON_RULE = /^(?:always|never|don[’']?t|do not|from now on|every time|
 
 export function organizeCandidates(text: string, today: string, core: ReadonlySet<string>): MemoryEntryLine[] {
   return parseMemoryEntries(text)
-    .filter((e) => !e.struck && !isExpired(e, today) && !core.has(factIdentity(e.body)) && !alwaysCore(e.body) && !PERSON_RULE.test(e.body.trim()))
+    .filter((e) => !e.struck && !isExpired(e, today) && !core.has(factIdentity(e.body)) && !alwaysCore(e.body) && e.kind !== "rule" && !PERSON_RULE.test(e.body.trim()))
     .slice(0, PROMPT_ENTRIES);
 }
 

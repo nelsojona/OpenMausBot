@@ -91,7 +91,7 @@ export interface PreferenceTarget {
  * work, which every bot reads, so nothing has to be passed on to each bot; `prefer` is null when no one person began it. */
 export function botMemoryUpdate(
   layer: string,
-  body: { action?: unknown; text?: unknown; oldText?: unknown; until?: unknown },
+  body: { action?: unknown; text?: unknown; oldText?: unknown; until?: unknown; kind?: unknown },
   opts: { source: string; aboutMe: Pick<AboutMe, "forget"> | null; prefer?: PreferenceTarget | null },
 ): BotMemoryResult {
   if (body.action === "prefer") {
@@ -116,7 +116,7 @@ export function botMemoryUpdate(
     rememberForgotten(passage, mentions);
     return { ok: true, forgotten, aboutMe };
   }
-  const result = updateMemory(layer, { action: body.action, text: body.text, oldText: body.oldText, ...(body.until !== undefined ? { until: body.until } : {}) } as MemoryUpdate, { source: opts.source });
+  const result = updateMemory(layer, { action: body.action, text: body.text, oldText: body.oldText, ...(body.until !== undefined ? { until: body.until } : {}), ...(body.kind === "fact" || body.kind === "rule" ? { kind: body.kind } : {}) } as MemoryUpdate, { source: opts.source });
   // Restore a fact only once it was saved: rejected arguments, a stale old_text,
   // or a failed file write must keep the person's forget request in force.
   if ((body.action === "append" || body.action === "supersede") && result.ok && typeof body.text === "string") clearForgotten(body.text);

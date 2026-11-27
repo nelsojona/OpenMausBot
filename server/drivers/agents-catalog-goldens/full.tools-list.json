@@ -1653,6 +1653,14 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
             "description": "Optional, for append or supersede: YYYY-MM-DD, the last day a temporary fact holds (an exam this weekend, a trip next week). After that day the entry is hidden from your memory."
           },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fact",
+              "rule"
+            ],
+            "description": "Optional: use rule for a stated preference or rule so upkeep never evicts or strikes it."
+          },
           "scope": {
             "type": "string",
             "enum": [

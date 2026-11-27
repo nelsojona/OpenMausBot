@@ -536,6 +536,7 @@ const TOOL_DEFINITIONS = [
         text: { type: "string", minLength: 1, maxLength: 1000, description: "Non-blank new text for append, replace, supersede, or prefer: the fact itself, without a date or bullet. Omit for remove and forget; use remove to delete a passage. At most 1000 characters." },
         old_text: { type: "string", minLength: 1, description: "Exact unique existing passage for replace, supersede, or remove; for forget, words naming it. Omit for append." },
         until: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "Optional, for append or supersede: YYYY-MM-DD, the last day a temporary fact holds (an exam this weekend, a trip next week). After that day the entry is hidden from your memory." },
+        kind: { type: "string", enum: ["fact", "rule"], description: "Optional: use rule for a stated preference or rule so upkeep never evicts or strikes it." },
         scope: { type: "string", enum: ["thread", "everywhere"] },
       },
       required: ["action"],
