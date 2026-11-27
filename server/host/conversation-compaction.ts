@@ -1,4 +1,4 @@
-import { draftSummary, foldPoint } from "../compaction-summary.ts";
+import { draftSummary, extractStandingDirectives, foldPoint } from "../compaction-summary.ts";
 import { compactBudget, compactionReading, contextWindowFor, shouldCompact } from "../context-budget.ts";
 import { MAX_SUMMARY_BYTES, selectReplay } from "../context-rebuild.ts";
 import type { ModelCatalog } from "../contracts.ts";
@@ -70,6 +70,8 @@ export interface ConversationCompactionDeps {
   idleFraction: number;
   /** Told true when a summary of a conversation someone is waiting on starts, and false once it is written, failed or stopped. */
   summarizing?(threadId: string, active: boolean): void;
+  /** Offers verbatim standing directives from the folded turns as a one-tap save-to-instructions card. */
+  offerSaveDirectives?(input: { bot: BotRecord; threadId: string; directives: string[] }): void;
 }
 
 export function createConversationCompaction(deps: ConversationCompactionDeps) {
@@ -133,11 +135,15 @@ export function createConversationCompaction(deps: ConversationCompactionDeps) {
         if (manual) throw new Error("the conversation changed during summarization — please retry");
         return;
       }
+      const directives = extractStandingDirectives(fold.folded);
       store.appendMessage(threadId, {
         role: "bot", kind: "compaction",
-        compaction: { summary, firstKeptId: fold.firstKeptId, foldedThroughId,
+        compaction: { summary, ...(directives.length ? { directives } : {}), firstKeptId: fold.firstKeptId, foldedThroughId,
           tokensBefore: measurement?.tokens ?? Math.ceil(bytes / 4), by: manual ? "person" : "harness" },
       }, { kind: "compaction.append", key: `${threadId}:${messages.at(-1)?.id}:${fold.firstKeptId}` });
+      if (directives.length) {
+        try { deps.offerSaveDirectives?.({ bot, threadId, directives }); } catch {}
+      }
     } finally {
       if (shown) deps.summarizing?.(threadId, false);
       if (deps.controllers.get(threadId)?.generation === generation) deps.controllers.delete(threadId);
