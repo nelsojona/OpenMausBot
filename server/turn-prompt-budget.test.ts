@@ -72,7 +72,7 @@ const PROMPT_BUDGET_BASELINE: Record<string, number> = {
   "tool-bridge": 593,
   "sign-in": 2552,
   "chief-of-staff": 4856,
-  "memory-rules": 2048,
+  "memory-rules": 2413,
   "setup": 2396,
   "meetings": 296,
   "computer-selection": 1269,

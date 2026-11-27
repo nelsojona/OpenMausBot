@@ -556,7 +556,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
         const child = connection.child;
 
       let abandoned = false, resumedNativeThread = false;
-      let codexThreadId: string | null = null;
+      let codexThreadId: string | null = null; let compactedInTurn = false;
       let codexTurnId: string | null = null;
       let startingNativeTurn = false;
       const earlyNotifications: any[] = [];
@@ -1040,7 +1040,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
                 }
               }
             } else if (item.type === "reasoning" || item.type === "contextCompaction") {
-              if (item.type === "contextCompaction" && codexThreadId) resetCodexInstructionReceipt(threadId, codexThreadId); emit(item.type === "reasoning" ? { ...base(threadId, turnId), type: "item.updated", itemType: "reasoning", tokens: null } : { ...base(threadId, turnId), type: "context.compacted" });
+              if (item.type === "contextCompaction" && codexThreadId) { compactedInTurn = true; resetCodexInstructionReceipt(threadId, codexThreadId); } emit(item.type === "reasoning" ? { ...base(threadId, turnId), type: "item.updated", itemType: "reasoning", tokens: null } : { ...base(threadId, turnId), type: "context.compacted" });
             }
             break;
           }
@@ -1365,7 +1365,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
           await startTurn();
         }
         // Only after turn/start accepted the input may the receipt claim delivery.
-        if (commitVolatile) commitVolatile();
+        if (commitVolatile && !compactedInTurn) commitVolatile();
         releaseSlot();
       } catch (e) {
         const failure = e instanceof Error ? e : { text: String(e) };
