@@ -285,7 +285,7 @@ const SHARED_SESSIONS_MAX = 6, SHARED_SESSIONS_LIFETIME = 12;
 /** Closing a session for these leaves its process fit for other threads' sessions; any other reason retires it. */
 const HEALTHY_CLOSE = new Set(["idle", "reset", "contract", "stop", "stopAll", "dispose", "approval-unconfirmed"]);
 /** ACP agents may compact their history silently; re-send the full prompt after this many bare turns. */
-const ACP_PROMPT_RE_ANCHOR_TURNS = 8;
+const ACP_PROMPT_RE_ANCHOR_TURNS = 4;
 
 let unkeyedToolSeq = 0;
 /** A synthetic id for a `tool_call` without `toolCallId`, paired FIFO with the first terminal update. */
