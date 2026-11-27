@@ -14,6 +14,7 @@ import { Store, type BotRecord } from "../store.ts";
 import * as vps from "../vps-computer.ts";
 import type { ManagedVpsInventory } from "../vps-computer.ts";
 import { stillHeldUnread } from "../host/room-reads.ts";
+import { profileRevision } from "../profile-revision.ts";
 import { createBotPatchRoutes, type BotPatchRouteDeps } from "./bot-patch.ts";
 import { PASS, type RouteContext } from "./table.ts";
 
@@ -692,5 +693,37 @@ describe("PATCH /api/bots/:id fallback", () => {
     const saved = await patch(bot.id, { fallback: [{ instanceId: "openai", model: "gpt-5" }, { instanceId: "claude", model: "claude-haiku-5" }] });
     expect(saved.status).toBe(200);
     expect(store.bot(bot.id)?.fallback).toEqual([{ instanceId: "openai", model: "gpt-5" }, { instanceId: "claude", model: "claude-haiku-5" }]);
+  });
+});
+
+describe("PATCH /api/bots/:id soul revision and shrink guard", () => {
+  it("refuses a second soul patch against a stale revision with 409", async () => {
+    const { store, bot, patch } = fixture();
+    const initialRev = profileRevision(store.bot(bot.id)!);
+
+    const first = await patch(bot.id, { soul: "Always cite sources.", expectedRevision: initialRev });
+    expect(first.status).toBe(200);
+    expect(store.bot(bot.id)?.soul).toBe("Always cite sources.");
+
+    const stale = await patch(bot.id, { soul: "Overwritten from stale tab.", expectedRevision: initialRev });
+    expect(stale.status).toBe(409);
+    expect(stale.body).toMatchObject({ code: "soul-revision-conflict" });
+    expect(store.bot(bot.id)?.soul).toBe("Always cite sources.");
+  });
+
+  it("requires confirmation when a patch shrinks standing instructions by more than half", async () => {
+    const { store, bot, patch } = fixture();
+    const longSoul = "Always cite sources with URLs. Never fabricate test outputs. Keep answers concise and structured in plain language.";
+    store.patchBotProfile(bot.id, { soul: longSoul });
+    const rev = profileRevision(store.bot(bot.id)!);
+
+    const refused = await patch(bot.id, { soul: "tps90", expectedRevision: rev });
+    expect(refused.status).toBe(409);
+    expect(refused.body).toMatchObject({ code: "soul-shrink-confirm" });
+    expect(store.bot(bot.id)?.soul).toBe(longSoul);
+
+    const confirmed = await patch(bot.id, { soul: "Short.", expectedRevision: rev, confirmSoulShrink: true });
+    expect(confirmed.status).toBe(200);
+    expect(store.bot(bot.id)?.soul).toBe("Short.");
   });
 });
