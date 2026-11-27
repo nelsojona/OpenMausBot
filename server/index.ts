@@ -14,7 +14,7 @@ import { basename, join } from "node:path";
 import { authorizeExternalRuntime, externalRuntimeIsActive, type ExternalRuntimeGrant } from "./external-runtime.ts";
 import { z } from "zod";
 import { DEFAULT_REBUILD_BYTES } from "./context-rebuild.ts";
-import { claudeCompactionDisabled, createConversationCompaction } from "./host/conversation-compaction.ts"; import { createResumeCheck } from "./host/resume-check.ts";
+import { claudeCompactionDisabled, createConversationCompaction } from "./host/conversation-compaction.ts"; import { createResumeCheck } from "./host/resume-check.ts"; import { filterFreshDirectives } from "./compaction-summary.ts";
 import { compactionReading } from "./context-budget.ts";
 import { autoCompactWindow } from "./drivers/claude.ts";
 import { RoomContextTracker, roomResetNote } from "./room-context.ts";
@@ -6948,7 +6948,7 @@ const compactConversation = createConversationCompaction({
   generateText: (botId, instance) => sideJobs.text("compaction", botId, { instance: instance as NonNullable<ReturnType<typeof registry.get>> })?.generateText,
   claimIsCurrent: (botId, generation, threadId) => directTurnClaimIsCurrent(botId, generation, threadId),
   controllers: compactionControllers, cancelled: (reason) => new DirectTurnSetupCancelled(reason), idleFraction: HARNESS_IDLE_FRACTION, summarizing: (threadId, active) => bus.publish({ ...waitEventBase(threadId), type: "context.summarizing", active }),
-  offerSaveDirectives: ({ bot, threadId, directives }) => { const existing = new Set((bot.soul ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean)); const fresh = directives.filter((line) => !existing.has(line.trim())); if (fresh.length) profileRequests.propose({ botId: bot.id, threadId, changes: { soul_ops: fresh.map((line) => ({ op: "add", line })) }, reason: "Save standing directives from this conversation to standing instructions" }); },
+  offerSaveDirectives: ({ bot, threadId, directives }) => { const fresh = filterFreshDirectives(directives, bot.soul ?? ""); if (fresh.length) profileRequests.propose({ botId: bot.id, threadId, changes: { soul_ops: fresh.map((line) => ({ op: "add", line })) }, reason: "Save standing directives from this conversation to standing instructions" }); },
 });
 
 const handoffs = new Handoffs({
