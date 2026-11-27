@@ -85,7 +85,7 @@ describe("bot folder", () => {
     const block = soulSystemPrompt("Be brief.\n");
     expect(block.startsWith("\n\n")).toBe(true);
     expect(block).toContain("--- BEGIN STANDING INSTRUCTIONS (SOUL.md, 9 bytes) ---\nBe brief.\n--- END STANDING INSTRUCTIONS ---");
-    expect(block).toContain("proposed changes apply only after the user confirms");
+    expect(block).toContain("adding a new rule applies at once with Undo, while changing or removing an existing line applies only after the user confirms");
     expect(block).not.toContain("propose_profile");
   });
 });

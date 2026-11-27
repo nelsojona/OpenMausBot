@@ -26,8 +26,104 @@ const LABELS: Record<Exclude<(typeof PROFILE_REQUEST_FIELDS)[number], "soul" | "
   speakReplies: "Speak replies",
 };
 const PRIVATE_WORKSPACE = "its private workspace";
-const CHOOSE_ONE = "Choose at least one of name, title, description, soul, cwd, notifications, speakReplies, browserProfile";
+const CHOOSE_ONE = "Choose at least one of name, title, description, soul, cwd, notifications, speakReplies, browserProfile, soul_ops";
 const BROWSER_PROFILE_FIELD = "browserProfile";
+const SOUL_OPS_FIELD = "soul_ops";
+
+export type SoulLineOp =
+  | { op: "add"; line: string }
+  | { op: "replace"; match: string; line: string }
+  | { op: "remove"; match: string };
+
+function parseSoulOps(input: unknown): SoulLineOp[] {
+  if (!Array.isArray(input) || input.length === 0) {
+    throw new ProfileRequestError("soul_ops must be a non-empty array of line operations");
+  }
+  const ops: SoulLineOp[] = [];
+  for (const item of input) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      throw new ProfileRequestError("each soul_ops entry must be an object");
+    }
+    const record = item as Record<string, unknown>;
+    const op = record.op;
+    if (op === "add") {
+      if (typeof record.line !== "string" || !record.line.trim()) {
+        throw new ProfileRequestError("soul_ops add requires a non-empty line");
+      }
+      if (/[\r\n]/.test(record.line)) {
+        throw new ProfileRequestError("soul_ops add line must be a single line");
+      }
+      ops.push({ op: "add", line: record.line.trim() });
+    } else if (op === "replace") {
+      if (typeof record.match !== "string" || !record.match.trim()) {
+        throw new ProfileRequestError("soul_ops replace requires a non-empty match");
+      }
+      if (typeof record.line !== "string" || !record.line.trim()) {
+        throw new ProfileRequestError("soul_ops replace requires a non-empty line");
+      }
+      if (/[\r\n]/.test(record.line)) {
+        throw new ProfileRequestError("soul_ops replace line must be a single line");
+      }
+      ops.push({ op: "replace", match: record.match.trim(), line: record.line.trim() });
+    } else if (op === "remove") {
+      if (typeof record.match !== "string" || !record.match.trim()) {
+        throw new ProfileRequestError("soul_ops remove requires a non-empty match");
+      }
+      ops.push({ op: "remove", match: record.match.trim() });
+    } else {
+      throw new ProfileRequestError(`unsupported soul_ops op: ${String(op)}`);
+    }
+  }
+  return ops;
+}
+
+function findSoulLineIndex(lines: string[], match: string): number {
+  const exact = lines.indexOf(match);
+  if (exact !== -1) return exact;
+  return lines.findIndex((line) => line.trim() === match);
+}
+
+export function applySoulOps(currentSoul: string, ops: SoulLineOp[]): { nextSoul: string; mutatesExisting: boolean } {
+  const lines = currentSoul.trim() === "" ? [] : currentSoul.split(/\r?\n/);
+  let mutatesExisting = false;
+  for (const op of ops) {
+    if (op.op === "add") {
+      if (findSoulLineIndex(lines, op.line) === -1) {
+        lines.push(op.line);
+      }
+    } else if (op.op === "replace") {
+      const index = findSoulLineIndex(lines, op.match);
+      if (index === -1) {
+        throw new ProfileRequestError(`Could not find standing instruction line: "${op.match}"`);
+      }
+      lines[index] = op.line;
+      mutatesExisting = true;
+    } else {
+      const index = findSoulLineIndex(lines, op.match);
+      if (index === -1) {
+        throw new ProfileRequestError(`Could not find standing instruction line: "${op.match}"`);
+      }
+      lines.splice(index, 1);
+      mutatesExisting = true;
+    }
+  }
+  return { nextSoul: lines.join("\n"), mutatesExisting };
+}
+
+export function soulChangeMutatesExisting(beforeSoul: string, nextSoul: string): boolean {
+  const beforeLines = beforeSoul.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (beforeLines.length === 0) return false;
+  const nextCounts = new Map<string, number>();
+  for (const line of nextSoul.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean)) {
+    nextCounts.set(line, (nextCounts.get(line) ?? 0) + 1);
+  }
+  for (const line of beforeLines) {
+    const remaining = nextCounts.get(line) ?? 0;
+    if (remaining === 0) return true;
+    nextCounts.set(line, remaining - 1);
+  }
+  return false;
+}
 const OWN_BROWSER_PROFILE_REFUSAL = (current: string) =>
   `A bot can't switch its own browser profile: it is mid-turn, and the profile only changes while it is idle. It uses ${current} now. The person picks another one from the profile menu in this bot's Browser tab.`;
 const toggleText = (value: boolean | undefined): string => (value ? "on" : "off");
@@ -118,20 +214,24 @@ function reasonText(value: unknown): string {
 }
 
 /** parseBotProfilePatch accepts keys (like `voice`) a profile request must not carry: reject them first. */
-function parseChanges(input: unknown): ProfileRequestChanges {
+function parseChanges(input: unknown): { changes: ProfileRequestChanges; soulOps?: SoulLineOp[] } {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw new ProfileRequestError(CHOOSE_ONE);
   }
   const keys = Object.keys(input);
   for (const key of keys) {
-    if (key !== BROWSER_PROFILE_FIELD && !(PROFILE_REQUEST_FIELDS as readonly string[]).includes(key)) {
+    if (key !== BROWSER_PROFILE_FIELD && key !== SOUL_OPS_FIELD && !(PROFILE_REQUEST_FIELDS as readonly string[]).includes(key)) {
       throw new ProfileRequestError(`unsupported profile field: ${key}`);
     }
   }
   if (keys.length === 0) {
     throw new ProfileRequestError(CHOOSE_ONE);
   }
-  const { cwd: rawCwd, browserProfile: rawBrowserProfile, ...profileInput } = input as Record<string, unknown>;
+  const { cwd: rawCwd, browserProfile: rawBrowserProfile, soul_ops: rawSoulOps, ...profileInput } = input as Record<string, unknown>;
+  if (rawSoulOps !== undefined && profileInput.soul !== undefined) {
+    throw new ProfileRequestError("Provide either soul_ops or soul, not both");
+  }
+  const soulOps = rawSoulOps !== undefined ? parseSoulOps(rawSoulOps) : undefined;
   if (rawBrowserProfile !== undefined && (typeof rawBrowserProfile !== "string" || rawBrowserProfile.length > 100)) {
     throw new ProfileRequestError("browserProfile must be a profile name or id of at most 100 characters, or \"\"");
   }
@@ -171,7 +271,7 @@ function parseChanges(input: unknown): ProfileRequestChanges {
     }
     changes[field] = redacted;
   }
-  return changes;
+  return { changes, soulOps };
 }
 
 function changedFields(changes: ProfileRequestChanges): string[] {
@@ -257,6 +357,7 @@ export class ProfileRequestService {
     changes: unknown;
     reason: unknown;
     from?: { botId: string; name: string; color: string };
+    untrustedSoulSource?: string;
   }): { requestId: string; messageId: string; title: string; summary: string; detail: string } {
     return this.prepare(args);
   }
@@ -272,7 +373,10 @@ export class ProfileRequestService {
     appliedBy?: DirectApply;
   } {
     const reason = reasonText(args.reason);
-    const changes = parseChanges(args.changes);
+    const { changes, soulOps } = parseChanges(args.changes);
+    if (args.untrustedSoulSource && (soulOps !== undefined || changes.soul !== undefined)) {
+      throw new ProfileRequestError(args.untrustedSoulSource, 403);
+    }
 
     const targetBotId = args.targetBotId ?? args.botId;
     const target = this.store.bot(targetBotId);
@@ -284,6 +388,16 @@ export class ProfileRequestService {
     }
 
     const snapshot = profileSnapshot(target);
+    let soulOpMutatesExisting = false;
+    if (soulOps) {
+      const applied = applySoulOps(snapshot.soul, soulOps);
+      soulOpMutatesExisting = applied.mutatesExisting;
+      const redactedSoul = redactSecretsInText(applied.nextSoul);
+      if (Buffer.byteLength(redactedSoul, "utf8") > BOT_PROFILE_LIMITS.soul) {
+        throw new ProfileRequestError("standing instructions must be at most 24000 bytes");
+      }
+      changes.soul = redactedSoul;
+    }
     const before: ProfileRequestChanges = {};
     const finalChanges: ProfileRequestChanges = {};
     let exactBefore = true;
@@ -336,7 +450,11 @@ export class ProfileRequestService {
     };
 
     const copy = profileCardCopy({ name: targetName, crossBot }, snapshot, before, finalChanges, reason, this.browserLabel());
-    const grant = submitted ? this.autoApply?.(args.botId, args.threadId, targetBotId) ?? null : null;
+    const soulMutatesExisting =
+      soulOpMutatesExisting ||
+      (finalChanges.soul !== undefined &&
+        soulChangeMutatesExisting(before.soul ?? redactSecretsInText(snapshot.soul), finalChanges.soul));
+    const grant = submitted && !soulMutatesExisting ? this.autoApply?.(args.botId, args.threadId, targetBotId) ?? null : null;
     const automatic = grant !== null;
     const persistence = this.canPersist?.(args.botId, args.threadId, !automatic);
     if (persistence && !persistence.ok) {
@@ -484,7 +602,7 @@ export class ProfileRequestService {
       }
 
       const { cwd, browserProfile, ...rest } = payload.changes;
-      const validated = Object.keys(rest).length ? parseChanges(rest) : {};
+      const validated = Object.keys(rest).length ? parseChanges(rest).changes : {};
       const patch: Parameters<ProfileRequestStore["patchBotProfile"]>[1] = { ...validated, lastProfileRequestId: payload.requestId };
       const browserBefore = { browserProfile: target.browserProfile, browser: target.browser };
       if (browserProfile !== undefined) {

@@ -354,7 +354,7 @@ import {
   workspaceDir,
   botSettingsFile,
 } from "./workspace.ts";
-import { memoryDate, writeMemoryFile, writeMemoryTopic } from "./workspace.ts";
+import { loadMemory, memoryDate, writeMemoryFile, writeMemoryTopic } from "./workspace.ts";
 import {
   beginMemoryTurn,
   endMemoryTurn,
@@ -415,7 +415,7 @@ import {
   ROUTINE_EXECUTION_PROMPT, READ_ONLY_ROUTINE_EXECUTION_PROMPT,
   WEBHOOK_PROMPT, BOT_API_PROMPT, BOT_API_OWNER_PROMPT, AUTOMATION_REPLY_PROMPT,
   resolveComputerPromptKind,
-  savedLoginsPrompt, heavyPrompt,
+  savedLoginsPrompt, heavyPrompt, pinnedRulesDigest,
   teamAvailabilityPart, teamRosterPart,
 } from "./system-prompt.ts";
 import { shellTimeoutHookResult } from "./shell-timeout-hint.ts";
@@ -6947,6 +6947,7 @@ const compactConversation = createConversationCompaction({
   generateText: (botId, instance) => sideJobs.text("compaction", botId, { instance: instance as NonNullable<ReturnType<typeof registry.get>> })?.generateText,
   claimIsCurrent: (botId, generation, threadId) => directTurnClaimIsCurrent(botId, generation, threadId),
   controllers: compactionControllers, cancelled: (reason) => new DirectTurnSetupCancelled(reason), idleFraction: HARNESS_IDLE_FRACTION, summarizing: (threadId, active) => bus.publish({ ...waitEventBase(threadId), type: "context.summarizing", active }),
+  offerSaveDirectives: ({ bot, threadId, directives }) => { const existing = new Set((bot.soul ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean)); const fresh = directives.filter((line) => !existing.has(line.trim())); if (fresh.length) profileRequests.propose({ botId: bot.id, threadId, changes: { soul_ops: fresh.map((line) => ({ op: "add", line })) }, reason: "Save standing directives from this conversation to standing instructions" }); },
 });
 
 const handoffs = new Handoffs({
@@ -8304,8 +8305,7 @@ async function beginTurn(
         ...(dispatchContext.recoveryText !== undefined ? { recoveryText: withTurnClock(clock, (posted?.text ?? "") + attachmentsForBox(dispatchContext.recoveryText, cwd, { botId: bot.id, threadId }) + shareNote.text) } : {}),
         transcript,
         system: prompt.text,
-        systemStable: prompt.stable,
-        systemVolatile: prompt.volatile, systemRoster: prompt.roster,
+        systemStable: prompt.stable, systemVolatile: prompt.volatile, systemRoster: prompt.roster, pinnedRulesDigest: pinnedRulesDigest(bot.soul, bot.memoryEnabled !== false ? loadMemory(teamHost.layer(bot.id, threadId))?.text : undefined) || undefined,
         mentionTurn: tagged.length > 0,
         integrations,
         ...(integrations.browser && browserIsThePlace(turnSurfacePlan(bot, undefined, threadId, true)) ? { preloadBrowserTools: true } : {}),
@@ -10168,8 +10168,7 @@ async function runClaimedGroupMemberTurn(
         toolScope: roomToolScope,
         ...(roomGuestConfined ? { guestConfined: true, confinedWhy: confinedWhy(threadId) } : {}),
         system: roomSystem.text,
-        systemStable: roomSystem.stable,
-        systemVolatile: roomSystem.volatile,
+        systemStable: roomSystem.stable, systemVolatile: roomSystem.volatile, pinnedRulesDigest: pinnedRulesDigest(readyBot.soul, readyBot.memoryEnabled !== false ? loadMemory(teamHost.layer(readyBot.id, threadId))?.text : undefined) || undefined,
         cwd, ...(worksInWorkspace || roomGuestConfined || cloudGuestOpened(threadId) ? {} : { toolResultFolder: messageFileRootsForThread(readyBot.id, threadId).find((root) => root !== ATTACHMENTS_DIR) }),
         integrations,
         ...(integrations.browser && browserIsThePlace(roomPlan) ? { preloadBrowserTools: true } : {}),
@@ -13213,14 +13212,8 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         const owner = connectorThread(from.id, body.fromThreadId);
         if (!owner) return json(res, 403, { error: "source conversation does not belong to sender" });
         const targetBotId = body.forBotId?.trim() || from.id;
-        const proposed = profileRequests.submit({
-          botId: from.id,
-          threadId: body.fromThreadId,
-          targetBotId,
-          changes: body.changes,
-          reason: body.reason,
-          from: owner.group ? { botId: from.id, name: from.name, color: from.color } : undefined,
-        });
+        const untrustedSoulSource = (internalCapability.depth > 0 || internalCapability.roomHandoffId) ? "Standing instructions cannot be changed from another agent's turn; only a person's direct request may add or edit SOUL.md rules." : (internalCapability.externalRuntime || activeRoutineRunForThread(body.fromThreadId) || outsideDrivenThread(body.fromThreadId)) ? "Standing instructions cannot be changed from a routine, webhook, or external turn; only a person's direct request may add or edit SOUL.md rules." : undefined;
+        const proposed = profileRequests.submit({ botId: from.id, threadId: body.fromThreadId, targetBotId, changes: body.changes, reason: body.reason, from: owner.group ? { botId: from.id, name: from.name, color: from.color } : undefined, untrustedSoulSource });
         appendDecision(DATA_DIR, {
           threadId: body.fromThreadId, requestId: proposed.requestId, botId: from.id, botName: from.name,
           tool: "update_profile", summary: proposed.detail, decision: proposed.state === "applied" ? "auto-approved" : "card-shown",

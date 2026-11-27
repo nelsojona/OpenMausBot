@@ -1,7 +1,9 @@
-// MEMORY.md entry grammar: `- YYYY-MM-DD · from <source> · text[ · until YYYY-MM-DD]`, struck through when superseded.
+// MEMORY.md entry grammar: `- YYYY-MM-DD · [rule · ][from <source> · ]text[ · until YYYY-MM-DD]`, struck through when superseded.
+
+export type MemoryEntryKind = "fact" | "rule";
 
 export const UNTIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const DATED = /^(- (\d{4}-\d{2}-\d{2}) · (?:from [^·\n]* · )?)(.*)$/;
+const DATED = /^(- (\d{4}-\d{2}-\d{2}) · (?:(rule) · )?(?:from [^·\n]* · )?)(.*)$/;
 const UNTIL_MARK = / · until (\d{4}-\d{2}-\d{2})(?= · |$)/;
 const TRAILING_MARKS = /(?: · (?:updated|confirmed|until|expired|superseded|moved) \d{4}-\d{2}-\d{2})+$/;
 const BULLET = /^\s*(?:[-*•]|\d+[.)])\s+/;
@@ -19,8 +21,13 @@ export interface MemoryEntryLine {
   prefix: string;
   body: string;
   date: string;
+  kind: MemoryEntryKind;
   until: string | null;
   struck: boolean;
+}
+
+export function isRuleEntry(entry: Pick<MemoryEntryLine, "kind">): boolean {
+  return entry.kind === "rule";
 }
 
 export function isMemoryDate(value: unknown): value is string {
@@ -53,11 +60,12 @@ export function parseMemoryEntries(text: string): MemoryEntryLine[] {
       if (togglesFence(lines[next])) open = !open;
       if (!open) end = next + 1;
     }
-    const rest = m[3];
+    const kind: MemoryEntryKind = m[3] === "rule" ? "rule" : "fact";
+    const rest = m[4];
     const struck = rest.startsWith("~~");
     const until = UNTIL_MARK.exec(rest)?.[1] ?? null;
     const body = rest.replace(TRAILING_MARKS, "").replace(/^~~/, "").replace(/~~$/, "").trim();
-    out.push({ line, end, raw, prefix: m[1], body, date: m[2], until, struck });
+    out.push({ line, end, raw, prefix: m[1], body, date: m[2], kind, until, struck });
     line = end;
   }
   return out;
