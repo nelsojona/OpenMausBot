@@ -32,7 +32,7 @@ const DRIVER_KIND = "museCode";
 const PROVIDER_ID = "meta";
 const CLIENT_INFO = { name: "openmausbot", title: "OpenMausBot", version: "1" };
 const MUSE_CONTEXT_WINDOW = 1_048_576;
-const RE_ANCHOR_TURNS = 8;
+const RE_ANCHOR_TURNS = 4;
 const STARTUP_TIMEOUT_MS = 30_000;
 const MODEL_LIST_TIMEOUT_MS = 20_000;
 const INTERRUPT_CONFIRM_MS = 5_000;
@@ -619,7 +619,7 @@ export const MuseCodeDriver: ProviderDriver<MuseConfig> = {
         if (halves.stable !== null) {
           const receiptKey = JSON.stringify([threadId, sessionId]);
           const composed = splitSessionPrompt(halves.stable, halves.volatile, readPromptSplitReceipt(DRIVER_KIND, receiptKey),
-            turn.system, text, Boolean(turn.mentionTurn), RE_ANCHOR_TURNS);
+            turn.system, text, Boolean(turn.mentionTurn), RE_ANCHOR_TURNS, turn.pinnedRulesDigest);
           text = composed.text;
           active.receipt = { key: receiptKey, receipt: composed.receipt };
         } else if (turn.system && session.started) {

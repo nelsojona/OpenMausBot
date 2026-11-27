@@ -354,7 +354,7 @@ import {
   workspaceDir,
   botSettingsFile,
 } from "./workspace.ts";
-import { memoryDate, writeMemoryFile, writeMemoryTopic } from "./workspace.ts";
+import { loadMemory, memoryDate, writeMemoryFile, writeMemoryTopic } from "./workspace.ts";
 import {
   beginMemoryTurn,
   endMemoryTurn,
@@ -415,7 +415,7 @@ import {
   ROUTINE_EXECUTION_PROMPT, READ_ONLY_ROUTINE_EXECUTION_PROMPT,
   WEBHOOK_PROMPT, BOT_API_PROMPT, BOT_API_OWNER_PROMPT, AUTOMATION_REPLY_PROMPT,
   resolveComputerPromptKind,
-  savedLoginsPrompt, heavyPrompt,
+  savedLoginsPrompt, heavyPrompt, pinnedRulesDigest,
   teamAvailabilityPart, teamRosterPart,
 } from "./system-prompt.ts";
 import { shellTimeoutHookResult } from "./shell-timeout-hint.ts";
@@ -8318,6 +8318,7 @@ async function beginTurn(
         system: prompt.text,
         systemStable: prompt.stable,
         systemVolatile: prompt.volatile, systemRoster: prompt.roster,
+        pinnedRulesDigest: pinnedRulesDigest(bot.soul, bot.memoryEnabled !== false ? loadMemory(teamHost.layer(bot.id, threadId))?.text : undefined) || undefined,
         mentionTurn: tagged.length > 0,
         integrations,
         ...(integrations.browser && browserIsThePlace(turnSurfacePlan(bot, undefined, threadId, true)) ? { preloadBrowserTools: true } : {}),
@@ -10185,6 +10186,7 @@ async function runClaimedGroupMemberTurn(
         system: roomSystem.text,
         systemStable: roomSystem.stable,
         systemVolatile: roomSystem.volatile,
+        pinnedRulesDigest: pinnedRulesDigest(readyBot.soul, readyBot.memoryEnabled !== false ? loadMemory(teamHost.layer(readyBot.id, threadId))?.text : undefined) || undefined,
         cwd, ...(worksInWorkspace || roomGuestConfined || cloudGuestOpened(threadId) ? {} : { toolResultFolder: messageFileRootsForThread(readyBot.id, threadId).find((root) => root !== ATTACHMENTS_DIR) }),
         integrations,
         ...(integrations.browser && browserIsThePlace(roomPlan) ? { preloadBrowserTools: true } : {}),

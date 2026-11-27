@@ -40,6 +40,15 @@ export function turnPrompt(
     const { note, receipt } = splitSessionNote(halves.stable, halves.volatile, previous, perTurnVolatile, reAnchorAfterTurns);
     return { input: { ...promptTurn, system: "" }, note, split: { key: receiptKey, receipt, previous } };
   }
-  const composed = splitSessionPrompt(halves.stable, halves.volatile, previous, promptTurn.system, promptTurn.text, perTurnVolatile, reAnchorAfterTurns);
+  const composed = splitSessionPrompt(
+    halves.stable,
+    halves.volatile,
+    previous,
+    promptTurn.system,
+    promptTurn.text,
+    perTurnVolatile,
+    reAnchorAfterTurns,
+    turn.pinnedRulesDigest,
+  );
   return { input: { ...promptTurn, system: "", text: composed.text }, note: "", split: { key: receiptKey, receipt: composed.receipt, previous } };
 }
