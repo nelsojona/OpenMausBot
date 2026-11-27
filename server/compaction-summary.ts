@@ -12,8 +12,22 @@ export function foldPoint(history: readonly ReplayEntry[], keepExchanges = 2): {
 }
 
 const DIRECTIVE_CUE = /\b(from now on|always|never|don't ever|do not ever|every time|whenever|going forward|for all future)\b/i;
+const DIRECTIVE_LEAD_PREFIX = /^(?:from now on|going forward)\s*,?\s+/i;
 const MAX_DIRECTIVES = 20;
 const MAX_DIRECTIVE_BYTES = 2_000;
+
+function normalizeDirectiveForDedup(line: string): string {
+  return line.trim().replace(DIRECTIVE_LEAD_PREFIX, "").toLowerCase();
+}
+
+/** Filters extracted directives against lines already saved in SOUL.md, ignoring case and leading "from now on, " / "going forward, " phrasing. */
+export function filterFreshDirectives(directives: readonly string[], soul: string): string[] {
+  const existing = new Set(soul.split(/\r?\n/).map(normalizeDirectiveForDedup).filter(Boolean));
+  return directives.filter((line) => {
+    const key = normalizeDirectiveForDedup(line);
+    return Boolean(key) && !existing.has(key);
+  });
+}
 
 /** Extracts verbatim standing directives from user messages (and prior compaction records), never from assistant text. */
 export function extractStandingDirectives(history: readonly ReplayEntry[]): string[] {
