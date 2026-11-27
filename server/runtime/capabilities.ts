@@ -46,6 +46,7 @@ const ENGINES: Readonly<Record<string, EngineRow>> = {
   greenference: CHAT_ROW,
   modelgo: CHAT_ROW,
   meta: CHAT_ROW,
+  vertex: CHAT_ROW,
 };
 
 export function replaysTranscriptNatively(driverKind: string | undefined): boolean {

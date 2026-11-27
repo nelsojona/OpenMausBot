@@ -12330,5 +12330,14 @@
   "server.github.card.description": "Conecte o GitHub para que {bot} possa enviar o trabalho para os seus repositórios.",
   "server.github.card.connectInApps": "Conecte o GitHub por este cartão no app do seu computador, ou em Apps.",
   "githubSignIn.title": "Login no GitHub",
-  "githubSignIn.tokenPlaceholder": "github_pat_…"
+  "githubSignIn.tokenPlaceholder": "github_pat_…",
+  "model.effort.minimal": "Mínimo",
+  "keys.vertex.label": "Token do proxy Vertex AI (opcional)",
+  "keys.vertex.placeholder": "Token Bearer opcional (padrão: local-vertex-proxy)",
+  "keys.purpose.vertex": "Proxy local da Vertex AI neste computador (endereço ou token personalizado opcional).",
+  "keys.vertex.url": "URL base do proxy Vertex (opcional)",
+  "keys.vertex.urlHint": "Deixe em branco para usar http://127.0.0.1:18790/v1. As credenciais reais do GCP ficam no vertex-grok-proxy.",
+  "engineSetup.vertex.connected": "Conectado ao proxy local da Vertex AI ({url}).",
+  "engineSetup.vertex.proxyOptions": "Endereço e token do proxy (opcional)",
+  "settings.ai.vertexProxyStopped": "Proxy local não está em execução"
 }

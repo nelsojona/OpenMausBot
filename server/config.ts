@@ -304,7 +304,7 @@ const appConfigSchema = z.object({
   mistral: z.object({ key: secretText }).optional(),
   cerebras: z.object({ key: secretText }).optional(), treg: z.object({ key: secretText }).optional(), postiz: z.object({ key: secretText, url: optionalText }).optional(),
   groq: z.object({ key: secretText, url: optionalText }).optional(),
-  greenference: z.object({ key: secretText }).optional(), modelgo: z.object({ key: secretText }).optional(),
+  greenference: z.object({ key: secretText }).optional(), modelgo: z.object({ key: secretText }).optional(), vertex: z.object({ baseUrl: optionalText, apiKey: secretText }).optional(),
   meta: z.object({ key: secretText, url: optionalText }).optional(),
   deepseek: z.object({ key: secretText }).optional(),
   xai: z.object({ key: secretText, url: optionalText }).optional(),
@@ -436,7 +436,7 @@ export interface AppConfig extends HelperConfig {
   mistral?: { key?: string };
   cerebras?: { key?: string }; treg?: { key?: string }; /** Postiz: an organisation API key and the server it belongs to (blank: Postiz Cloud). */ postiz?: { key?: string; url?: string };
   groq?: { key?: string; url?: string };
-  greenference?: { key?: string }; modelgo?: { key?: string };
+  greenference?: { key?: string }; modelgo?: { key?: string }; vertex?: { baseUrl?: string; apiKey?: string };
   meta?: { key?: string; url?: string };
   /** DeepSeek API key for the DeepSeek Harness engine (`dsh`). */
   deepseek?: { key?: string };
@@ -662,7 +662,7 @@ function fallbackEnv(entry: InstanceConfigMap[string]): string[] {
   switch (entry.driver) {
     case "mistral": return ["MISTRAL_API_KEY"];
     case "cerebras": return ["CEREBRAS_API_KEY"];
-    case "grok": return [named ?? "XAI_API_KEY"];
+    case "grok": return [named ?? "XAI_API_KEY"]; case "vertex": return ["VERTEX_API_KEY", "OMB_VERTEX_URL"];
     case "openai-compat":
       return named && Object.values(API_KEY_FLEET).some((own) => (own.config as { apiKeyEnv?: string } | undefined)?.apiKeyEnv === named)
         ? [named]
@@ -717,7 +717,7 @@ export function loadConfig(): AppConfig {
     ["deepseek", "OMB_DEEPSEEK_API_KEY"], ["greenference", "OMB_GREENFERENCE_API_KEY"], ["modelgo", "OMB_MODELGO_API_KEY"], ["xai", "XAI_API_KEY"]] as const) {
     cfg[name] = { ...cfg[name], ...(process.env[env] !== undefined ? { key: process.env[env] } : {}) };
   }
-  if (process.env.OMB_TREG_KEY !== undefined) cfg.treg = { ...cfg.treg, key: process.env.OMB_TREG_KEY }; if (process.env.OMB_POSTIZ_API_KEY !== undefined) cfg.postiz = { ...cfg.postiz, key: process.env.OMB_POSTIZ_API_KEY };
+  if (process.env.OMB_TREG_KEY !== undefined) cfg.treg = { ...cfg.treg, key: process.env.OMB_TREG_KEY }; if (process.env.OMB_POSTIZ_API_KEY !== undefined) cfg.postiz = { ...cfg.postiz, key: process.env.OMB_POSTIZ_API_KEY }; if (process.env.OMB_VERTEX_API_KEY !== undefined || process.env.OMB_VERTEX_URL !== undefined) cfg.vertex = { ...cfg.vertex, ...(process.env.OMB_VERTEX_API_KEY !== undefined ? { apiKey: process.env.OMB_VERTEX_API_KEY } : {}), ...(process.env.OMB_VERTEX_URL !== undefined ? { baseUrl: process.env.OMB_VERTEX_URL } : {}) };
   // Never ANTHROPIC_API_KEY: an operator's stray variable must not move every Claude bot onto API billing.
   cfg.anthropic = { ...cfg.anthropic };
   if (process.env.OMB_ANTHROPIC_API_KEY !== undefined) cfg.anthropic.key = process.env.OMB_ANTHROPIC_API_KEY;
@@ -775,7 +775,7 @@ export function syncCredentialEnv(patch: Partial<Omit<AppConfig, "threads" | "ne
     [patch.mistral?.key, "MISTRAL_API_KEY"],
     [patch.cerebras?.key, "CEREBRAS_API_KEY"], [patch.treg?.key, "OMB_TREG_KEY"], [patch.postiz?.key, "OMB_POSTIZ_API_KEY"],
     [patch.groq?.key, "OMB_GROQ_API_KEY"],
-    [patch.greenference?.key, "OMB_GREENFERENCE_API_KEY"], [patch.modelgo?.key, "OMB_MODELGO_API_KEY"],
+    [patch.greenference?.key, "OMB_GREENFERENCE_API_KEY"], [patch.modelgo?.key, "OMB_MODELGO_API_KEY"], [patch.vertex?.apiKey, "OMB_VERTEX_API_KEY"], [patch.vertex?.baseUrl, "OMB_VERTEX_URL"],
     [patch.meta?.key, "OMB_META_API_KEY"],
     [patch.deepseek?.key, "OMB_DEEPSEEK_API_KEY"],
     [patch.anthropic?.key, "OMB_ANTHROPIC_API_KEY"],
@@ -889,7 +889,7 @@ export function saveConfig(
   const keepImageModels = keepKeysOutOfImageModels(disk, checkedPatch.imageGen);
   const storedProfiles = storedBrowserProfilesSchema.safeParse(disk.browserProfiles);
   if (storedProfiles.success) disk.browserProfiles = storedProfiles.data;
-  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "vpsIdle", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor"] as const) {
+  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "vertex", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "vpsIdle", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor"] as const) {
     const section = checkedPatch[key];
     if (!section) continue;
     const current = jsonObjectSchema.safeParse(disk[key]);
@@ -1090,7 +1090,7 @@ export function instanceOwnsRouting(
       return own(entry.environment?.GROQ_API_KEY) || ownUrl("https://api.groq.com/openai/v1", cfg.groq?.url);
     case "greenference":
       return own(entry.environment?.GREENFERENCE_API_KEY) || ownUrl("https://llm.eu.greenference.com/v1");
-    case "modelgo": return own(entry.environment?.MODELGO_API_KEY) || ownUrl("https://api.modelgo.ai/v1");
+    case "modelgo": return own(entry.environment?.MODELGO_API_KEY) || ownUrl("https://api.modelgo.ai/v1"); case "vertex": return own(config.apiKey) || own(entry.environment?.VERTEX_API_KEY) || (own(config.baseUrl ?? config.url) && ![cfg.vertex?.baseUrl, "http://127.0.0.1:18790/v1"].some((u) => u !== undefined && sameUrl(String(config.baseUrl ?? config.url), u)));
     case "meta":
       return own(entry.environment?.META_API_KEY) || ownUrl("https://api.meta.ai/v1", cfg.meta?.url);
     case "deepseekAgent": case "mistralVibeAgent":
@@ -1110,7 +1110,7 @@ function injectedEnvironment(cfg: AppConfig, instanceId: string, driver: string)
   if ((driver === "mistral" || driver === "mistralVibeAgent") && cfg.mistral?.key) environment.set("MISTRAL_API_KEY", cfg.mistral.key);
   if (driver === "cerebras" && cfg.cerebras?.key) environment.set("CEREBRAS_API_KEY", cfg.cerebras.key);
   if (driver === "groq" && cfg.groq?.key) environment.set("GROQ_API_KEY", cfg.groq.key);
-  if (driver === "greenference" && cfg.greenference?.key) environment.set("GREENFERENCE_API_KEY", cfg.greenference.key); if (driver === "modelgo" && cfg.modelgo?.key) environment.set("MODELGO_API_KEY", cfg.modelgo.key);
+  if (driver === "greenference" && cfg.greenference?.key) environment.set("GREENFERENCE_API_KEY", cfg.greenference.key); if (driver === "modelgo" && cfg.modelgo?.key) environment.set("MODELGO_API_KEY", cfg.modelgo.key); if (driver === "vertex" && cfg.vertex?.apiKey) environment.set("VERTEX_API_KEY", cfg.vertex.apiKey);
   if (driver === "meta" && cfg.meta?.key) environment.set("META_API_KEY", cfg.meta.key);
   if (driver === "deepseekAgent" && cfg.deepseek?.key) environment.set("DEEPSEEK_API_KEY", cfg.deepseek.key);
   if (driver === "grok" && cfg.xai?.key) environment.set("XAI_API_KEY", cfg.xai.key);
@@ -1171,9 +1171,8 @@ export function instanceConfigs(cfg: AppConfig): InstanceConfigMap {
     if (entry.driver === "groq" && cfg.groq?.url && !ownsRouting) {
       entry.config = { ...entry.config as object, url: cfg.groq.url };
     }
-    if (entry.driver === "meta" && cfg.meta?.url && !ownsRouting) {
-      entry.config = { ...entry.config as object, url: cfg.meta.url };
-    }
+    if (entry.driver === "meta" && cfg.meta?.url && !ownsRouting) entry.config = { ...entry.config as object, url: cfg.meta.url };
+    if (entry.driver === "vertex" && cfg.vertex?.baseUrl && !ownsRouting) entry.config = { ...entry.config as object, baseUrl: cfg.vertex.baseUrl };
     if (entry.driver === "openai-compat" && cfg.openaiCompat && id !== OPENAI_API_INSTANCE && id !== OPENROUTER_API_INSTANCE) {
       const defaults: Record<string, string> = {};
       if (cfg.openaiCompat.url) defaults.url = cfg.openaiCompat.url;
