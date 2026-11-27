@@ -753,7 +753,9 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
         action: args.action,
         text: args.text,
         oldText: args.old_text,
-        ...(typeof args.until === "string" && args.until.trim() ? { until: args.until.trim() } : {}), ...(args.scope === "thread" || args.scope === "everywhere" ? { scope: args.scope } : {}),
+        ...(typeof args.until === "string" && args.until.trim() ? { until: args.until.trim() } : {}),
+        ...(args.kind === "fact" || args.kind === "rule" ? { kind: args.kind } : {}),
+        ...(args.scope === "thread" || args.scope === "everywhere" ? { scope: args.scope } : {}),
       }),
     });
     if (r.error || r.ok !== true) return { text: String(r.error ?? "Memory update was not confirmed."), isError: true };

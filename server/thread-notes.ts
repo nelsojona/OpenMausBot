@@ -104,7 +104,7 @@ export function forgetInThreadNotes(botId: string, threadId: string, mentions: (
   return kept.removed;
 }
 
-type MemoryBody = { action?: unknown; text?: unknown; oldText?: unknown; until?: unknown; scope?: unknown };
+type MemoryBody = { action?: unknown; text?: unknown; oldText?: unknown; until?: unknown; kind?: unknown; scope?: unknown };
 
 /** memory_update from a bot's turn, in `thread` when its saves default to that conversation's notes. "everywhere" and a
  * preference go to the bot's memory as before; forget reaches this conversation's notes as well as everything else. A
@@ -124,7 +124,7 @@ export function scopedMemoryUpdate(
   }
   const passage = typeof body.oldText === "string" ? body.oldText : undefined;
   if (body.scope !== "thread" && passage?.trim() && !readThreadNotes(thread.botId, thread.threadId).includes(passage)) return botMemoryUpdate(layer, body, opts);
-  const update = { action: body.action, text: body.text, oldText: body.oldText, ...(body.until !== undefined ? { until: body.until } : {}) } as MemoryUpdate;
+  const update = { action: body.action, text: body.text, oldText: body.oldText, ...(body.until !== undefined ? { until: body.until } : {}), ...(body.kind === "fact" || body.kind === "rule" ? { kind: body.kind } : {}) } as MemoryUpdate;
   const result = updateThreadNotes(thread.botId, thread.threadId, update, { source: opts.source });
   if ((body.action === "append" || body.action === "supersede") && result.ok && typeof body.text === "string") clearForgotten(body.text);
   return result;
