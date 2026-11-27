@@ -141,9 +141,13 @@ export function splitSessionPrompt(
   text: string,
   perTurnVolatile = false,
   reAnchorAfterTurns = 0,
+  pinnedRulesDigest = "",
 ): { text: string; receipt: PromptSplitReceipt } {
   const turn = splitTurn(stable, volatile, previous, perTurnVolatile, reAnchorAfterTurns);
-  if (!turn.full) return { text: withContextNote(turn.note, text), receipt: turn.receipt };
+  if (!turn.full) {
+    const withDigest = withContextNote(pinnedRulesDigest.trim(), text);
+    return { text: withContextNote(turn.note, withDigest), receipt: turn.receipt };
+  }
   return { text: fullSystem ? fullSystem + "\n\n" + text : text, receipt: turn.receipt };
 }
 
