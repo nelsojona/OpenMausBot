@@ -1,5 +1,6 @@
 import type { EngineCompactResult } from "../contracts.ts";
 import { codexConfigDigest, codexOutsideIdentity, type CodexConnection, type CodexLease, type CodexTurnLink, type KeptCodex, type codexWarmSessions } from "./codex-warm.ts";
+import { resetCodexInstructionReceipt } from "./codex-instructions.ts";
 import { appendNative } from "./native.ts";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -121,6 +122,7 @@ export function codexCompactSession<Carried>(deps: CodexCompactDeps<Carried>) {
       const status = await race(completion);
       if (status !== "completed" || !turn.compacted) throw new Refused(`the compaction turn ended ${status === "completed" ? "without compacting" : status}`);
       if (lease.invalidated) throw new Refused("the Codex process was closed during compaction");
+      resetCodexInstructionReceipt(threadId, nativeThreadId);
 
       const now = connection.usageTotal ?? baseline;
       const usage = { input: Math.max(0, now.input - baseline.input), output: Math.max(0, now.output - baseline.output), cachedInput: Math.max(0, now.cachedInput - baseline.cachedInput) };
