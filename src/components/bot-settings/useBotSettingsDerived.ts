@@ -57,6 +57,8 @@ export type BotPatch = Partial<
   phoneApps?: Bot["phoneApps"] | null;
   acknowledgeLocalAuto?: boolean;
   acknowledgePeerScope?: boolean;
+  expectedRevision?: string;
+  confirmSoulShrink?: boolean;
 };
 
 export function useBotSettingsDerived(bot: Bot) {

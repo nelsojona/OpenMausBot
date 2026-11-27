@@ -31,7 +31,7 @@ import { MAX_MCP_SERVERS, mcpServerNameError } from "../mcp-registry.ts";
 import { mainThreadChoicePatch } from "../main-thread.ts";
 import type { MemoryUpkeep } from "../memory-upkeep.ts";
 import { phoneAppsFor } from "../phones/access.ts";
-import { profileSnapshot } from "../profile-revision.ts";
+import { profileRevision, profileSnapshot } from "../profile-revision.ts";
 import { recordProfileChange } from "../profile-versions.ts";
 import { memberBotPatchViolation, requestSource, type RequestAuth } from "../request-auth.ts"; import { defaultBotPatchRefusal, ownsDefaultBot } from "../default-bot.ts";
 import type { RoutineManager } from "../routines.ts";
@@ -745,6 +745,28 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
       delete patch.unread;
       if (Array.isArray(patch.alwaysAllow)) dropRemovedGrants(store, deps.turnBots?.values() ?? [], m[1], patch.alwaysAllow);
       if (profile.patch.soul !== undefined) {
+        const currentForSoul = freshBrowserBot ?? existingBot;
+        if (currentForSoul) {
+          const currentRevision = profileRevision(currentForSoul);
+          if (typeof body.expectedRevision === "string" && body.expectedRevision.trim() !== "" && body.expectedRevision.trim() !== currentRevision) {
+            return json(res, 409, {
+              error: "Standing instructions changed elsewhere while you were editing. Reload before saving.",
+              code: "soul-revision-conflict",
+              currentRevision,
+              currentSoul: currentForSoul.soul ?? "",
+            });
+          }
+          const currentSoulLen = (currentForSoul.soul ?? "").trim().length;
+          const nextSoulLen = profile.patch.soul.trim().length;
+          if (currentSoulLen >= 80 && nextSoulLen < currentSoulLen / 2 && body.confirmSoulShrink !== true) {
+            return json(res, 409, {
+              error: "This edit removes more than half of the standing instructions. Confirm to save it.",
+              code: "soul-shrink-confirm",
+              currentRevision,
+              currentSoul: currentForSoul.soul ?? "",
+            });
+          }
+        }
         if (freshBrowserBot) assertTeamComputerChangeIdle(freshBrowserBot, { ...freshBrowserBot, ...patch } as BotRecord);
       // Runtime fields keep their fail-closed order; only the profile fields commit atomically.
         const runtimePatch = { ...patch };

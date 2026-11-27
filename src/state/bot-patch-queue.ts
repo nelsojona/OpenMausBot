@@ -66,6 +66,8 @@ export type BotUpdatePatch = Partial<
   threadId?: string;
   /** The conversation to make main ("Set as main thread"); null clears it. Body only: the bot shows it as mainThreadId. */
   mainThreadChoice?: string | null;
+  expectedRevision?: string;
+  confirmSoulShrink?: boolean;
 };
 
 export type BotStatePatch = Omit<
