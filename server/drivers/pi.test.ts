@@ -730,8 +730,8 @@ describe("PiDriver turns (fake CLI)", () => {
     }
     const full = "Standing rules.\n\nMemory: likes quiet hours.";
     expect(messages[0]).toBe(full + "\n\nturn 0");
-    for (let i = 1; i <= 8; i++) expect(messages[i]).toBe("turn " + i);
-    expect(messages[9]).toBe(full + "\n\nturn 9");
+    for (let i = 1; i <= 4; i++) expect(messages[i]).toBe("turn " + i);
+    expect(messages[5]).toBe(full + "\n\nturn 5");
   });
 
   it("fails the turn and writes no receipt when pi rejects the prompt", async () => {
