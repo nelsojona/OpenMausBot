@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { pinnedRulesDigest } from "../system-prompt.ts";
 import {
   deletePromptSplitReceipt,
   promptHalves,
@@ -196,4 +197,46 @@ it("tells a session that holds the stable half that the volatile half was cleare
   const previous = promptSplitFingerprints("stable one", "the open task");
   expect(splitSessionNote("stable two", "", previous).note).toContain("have been cleared");
   expect(splitSessionNote("stable two", "", promptSplitFingerprints("stable one", "")).note).toBe("");
+});
+
+describe("pinnedRulesDigest on bare turns", () => {
+  it("builds a bounded digest from soul lines and rule memory entries and attaches it on every bare turn", () => {
+    const soul = "Always cite sources.\nNever use emojis.";
+    const memory = [
+      "- 2026-09-01 · rule · Reply in Spanish.",
+      "- 2026-09-02 · Office is in Austin.",
+      "- 2026-09-03 · rule · ~~Old struck rule~~ · superseded 2026-09-04",
+    ].join("\n");
+    const rules = pinnedRulesDigest(soul, memory);
+    expect(rules).toContain("- Always cite sources.");
+    expect(rules).toContain("- Never use emojis.");
+    expect(rules).toContain("- Reply in Spanish.");
+    expect(rules).not.toContain("Office is in Austin");
+    expect(rules).not.toContain("Old struck rule");
+
+    const fullSystem = `${soul}\n\n${memory}`;
+    const first = splitSessionPrompt(soul, memory, null, fullSystem, "first", false, 4, rules);
+    expect(first.text).toBe(fullSystem + "\n\nfirst");
+    expect(first.text).not.toContain("Pinned standing rules");
+
+    const second = splitSessionPrompt(soul, memory, first.receipt, fullSystem, "second", false, 4, rules);
+    expect(second.text).toContain("Pinned standing rules (always follow):");
+    expect(second.text).toContain("- Always cite sources.");
+    expect(second.text).toContain("- Reply in Spanish.");
+    expect(second.text.endsWith("\n\nsecond")).toBe(true);
+
+    const third = splitSessionPrompt(soul, memory, second.receipt, fullSystem, "third", false, 4, rules);
+    expect(third.text).toContain("- Always cite sources.");
+    expect(third.text.endsWith("\n\nthird")).toBe(true);
+  });
+
+  it("caps the digest at 20 lines", () => {
+    const soul = Array.from({ length: 30 }, (_, i) => `Standing rule number ${i + 1}.`).join("\n");
+    const rules = pinnedRulesDigest(soul);
+    const bulletLines = rules.split("\n").filter((line) => line.startsWith("- "));
+    expect(bulletLines).toHaveLength(20);
+    expect(rules).toContain("Standing rule number 1.");
+    expect(rules).toContain("Standing rule number 20.");
+    expect(rules).not.toContain("Standing rule number 21.");
+  });
 });

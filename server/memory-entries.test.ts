@@ -4,9 +4,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { DATA_DIR } from "./config.ts";
 import { factIdentity, isExpired, isMemoryDate, lineFactIdentity, notebookIdentities, parseMemoryEntries, withoutExpired } from "./memory-entries.ts";
+import { organizeCandidates } from "./memory-organize.ts";
+import { applyTidy, planTidy } from "./memory-tidy.ts";
 import { parseTopicHeader, renderTopicIndex, TOPIC_INDEX_MAX_TOPICS } from "./memory-topics.ts";
 import { closeMessageDb } from "./message-db.ts";
-import { ensureWorkspace, loadMemory, memorySystemPrompt, searchMemoryFiles, updateMemory, writeMemoryFile, writeMemoryTopic, WORKSPACES_DIR } from "./workspace.ts";
+import { ensureWorkspace, loadMemory, MEMORY_MAX_LINES, memorySystemPrompt, searchMemoryFiles, updateMemory, writeMemoryFile, writeMemoryTopic, WORKSPACES_DIR } from "./workspace.ts";
 
 const BOT = "bot-memory-entries";
 
@@ -158,5 +160,54 @@ describe("memory with until dates and topics, on disk", () => {
     expect(prompt).toContain("- memory/notes.md");
     expect(memorySystemPrompt(BOT, { fileTools: false })).toContain("look it up with session_search before you answer");
     expect(searchMemoryFiles(BOT, "restaurants").map((hit) => hit.file)).toContain("memory/dining.md");
+  });
+
+  it("keeps the oldest rule entry when MEMORY.md fills past 200 lines while archiving the oldest fact", () => {
+    const day0 = new Date(2026, 8, 1, 12);
+    const rule = updateMemory(BOT, { action: "append", text: "The person wants concise bullet points.", kind: "rule" }, { now: day0 });
+    expect(rule).toMatchObject({ ok: true, entry: "- 2026-09-01 · rule · The person wants concise bullet points." });
+    for (let i = 1; i <= MEMORY_MAX_LINES + 5; i++) {
+      const day = new Date(2026, 8, 2 + Math.floor(i / 20), 12);
+      const res = updateMemory(BOT, { action: "append", text: `Ordinary fact number ${i}` }, { now: day });
+      expect(res.ok).toBe(true);
+    }
+    const loaded = loadMemory(BOT, { now: new Date(2026, 9, 1, 12) });
+    expect(loaded?.text).toContain("The person wants concise bullet points.");
+    expect(loaded?.text).not.toContain("Ordinary fact number 1\n");
+    const archive = readFileSync(join(WORKSPACES_DIR, BOT, "memory", "archive.md"), "utf8");
+    expect(archive).toContain("Ordinary fact number 1");
+    expect(archive).not.toContain("The person wants concise bullet points.");
+  });
+
+  it("exempts declarative rule entries from organize moves and tidy strikes, surfacing rule conflicts instead", () => {
+    const text = [
+      "- 2026-09-01 · rule · The person wants short bulleted answers.",
+      "- 2026-09-02 · The person mentioned writing a long essay once.",
+      "- 2026-09-03 · Project Alpha uses PostgreSQL.",
+      "- 2026-09-04 · Project Beta uses SQLite.",
+      "- 2026-09-05 · Office is in Austin.",
+      "- 2026-09-06 · Office is in Denver.",
+    ].join("\n");
+    const entries = parseMemoryEntries(text);
+    expect(entries[0]?.kind).toBe("rule");
+    expect(entries[1]?.kind).toBe("fact");
+
+    const candidates = organizeCandidates(text, "2026-09-10", new Set());
+    expect(candidates.some((entry) => entry.body.includes("short bulleted answers"))).toBe(false);
+    expect(candidates.some((entry) => entry.body.includes("Project Alpha"))).toBe(true);
+
+    const plan = planTidy(text, "2026-09-10", [
+      { a: 0, b: 1, keep: "b" },
+      { a: 4, b: 5, keep: "b" },
+    ]);
+    expect(plan.conflicts).toHaveLength(1);
+    expect(plan.conflicts[0]!.rule.body).toBe("The person wants short bulleted answers.");
+    expect(plan.conflicts[0]!.other.body).toBe("The person mentioned writing a long essay once.");
+    expect(plan.superseded.map((item) => item.loser.body)).toEqual(["Office is in Austin."]);
+
+    const applied = applyTidy(text, plan, "2026-09-10");
+    expect(applied.text).toContain("- 2026-09-01 · rule · The person wants short bulleted answers.");
+    expect(applied.text).toContain("- 2026-09-02 · The person mentioned writing a long essay once.");
+    expect(applied.text).toContain("~~Office is in Austin.~~");
   });
 });

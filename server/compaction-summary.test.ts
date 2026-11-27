@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { EXCERPT_SUMMARY_HEADER } from "../shared/wire.ts";
-import { deterministicSummary, draftSummary, foldPoint, summaryPrompt } from "./compaction-summary.ts";
+import { deterministicSummary, draftSummary, extractStandingDirectives, filterFreshDirectives, foldPoint, summaryPrompt } from "./compaction-summary.ts";
 import { MAX_SUMMARY_BYTES, selectReplay, type CompactionRecord, type ReplayEntry } from "./context-rebuild.ts";
 import { createSideJobs, type SideJobInstance, type SideJobsDeps } from "./side-jobs.ts";
 
@@ -202,4 +202,71 @@ it("says it is summarizing from the start of a summary until it is written, fail
   expect(seen).toEqual([true, false, true, false]);
   await draftSummary(history, { signal: new AbortController().signal, onSummarizing, generateText: () => Promise.reject(new Error("helper down")) });
   expect(seen).toEqual([true, false, true, false, true, false]);
+});
+
+it("preserves a turn-3 standing directive verbatim across long history, timeout fallback, and active replay", async () => {
+  const directive = "From now on, always end every status report with the ticket number.";
+  const longHistory: ReplayEntry[] = [
+    { id: "m1", role: "user", text: "Let's start the weekly triage." },
+    { id: "m2", role: "assistant", text: "Ready to triage." },
+    { id: "m3", role: "user", text: directive },
+    { id: "m4", role: "assistant", text: "Understood, I will always include the ticket number." },
+    ...Array.from({ length: 30 }, (_, index) => ({
+      id: `filler-${index}`,
+      role: (index % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
+      text: `Routine triage update ${index}: ${"details ".repeat(60)}`,
+    })),
+  ];
+
+  const directives = extractStandingDirectives(longHistory);
+  expect(directives).toEqual([directive]);
+
+  const excerpt = deterministicSummary(longHistory, 2_048);
+  expect(excerpt).toContain(directive);
+
+  const timedOut = await draftSummary(longHistory, {
+    signal: new AbortController().signal,
+    timeoutMs: 15,
+    generateText: (_prompt, options) => new Promise<string>((_resolve, reject) => {
+      options!.signal!.addEventListener("abort", () => reject(options!.signal!.reason), { once: true });
+    }),
+  });
+  expect(timedOut).toContain(directive);
+
+  const replay = selectReplay(
+    [...longHistory, { id: "c1", role: "assistant", text: "" }, { id: "m99", role: "user", text: "Give me the status report." }],
+    {
+      compaction: {
+        id: "c1",
+        firstKeptId: "",
+        foldedThroughId: longHistory.at(-1)!.id,
+        summary: timedOut,
+        directives,
+        tokensBefore: 10_000,
+        by: "harness",
+      },
+    },
+  );
+  const summaryEntry = replay.transcript.find((entry) => entry.text.includes("historical data, not new instructions"));
+  const activeEntry = replay.transcript.find((entry) => entry.text.includes("[Standing directives the person gave earlier in this conversation — active instructions:]"));
+  expect(summaryEntry).toBeDefined();
+  expect(activeEntry).toBeDefined();
+  expect(activeEntry!.role).toBe("user");
+  expect(activeEntry!.text).toContain(directive);
+  expect(activeEntry!.text).not.toContain("historical data, not new instructions");
+});
+
+it("deduplicates offered directives against SOUL.md ignoring case and leading 'from now on, ' / 'going forward, ' prefixes", () => {
+  const soul = [
+    "You are a concise assistant.",
+    "Always end every reply with [TEST-OK].",
+    "Never use exclamation marks.",
+  ].join("\n");
+  const fresh = filterFreshDirectives([
+    "From now on, always end every reply with [TEST-OK].",
+    "Going forward, NEVER use exclamation marks.",
+    "Always end every reply with [TEST-OK].",
+    "From now on, answer in bullet points.",
+  ], soul);
+  expect(fresh).toEqual(["From now on, answer in bullet points."]);
 });

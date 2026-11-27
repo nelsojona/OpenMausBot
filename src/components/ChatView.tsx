@@ -4,7 +4,7 @@ import { PHONE_LAYOUT, useMediaQuery } from "@/lib/use-media-query";
 import { ThreadLinkContext } from "@/components/ThreadLinkMenu";
 import { useShowThreads } from "@/lib/thread-preferences";
 import { AlertTriangle, ChevronRight, Monitor, RefreshCw, Square, Webhook } from "lucide-react";
-import { WorkingDots } from "@/components/WorkingIndicator";
+import { WorkingDots } from "@/components/WorkingIndicator"; import { SoulDriftNotice } from "@/components/SoulDriftNotice"; import { openBotSettings } from "@/components/bot-panel/panel-link";
 import { ChatBusyContext, CopyButton, MESSAGE_ROW, MessageActions, messageActionClass, ReplyAction } from "@/components/MessageActions";
 import { ReactAction, ReactionChips } from "@/components/Reactions";
 import { replyAndCopy, useBotMessageMenu, userMessageMenu } from "@/components/message-menu";
@@ -1041,7 +1041,7 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
       {findOpen && <ChatFindBar threadId={bot.threadId} inForkPanel={inForkPanel} onClose={() => setFindOpen(false)} />}
 
       <ChatErrorBanner message={state.error} onDismiss={() => dispatch({ type: "error", message: null })} />
-      <ChatNotice notice={state.notice} />
+      <ChatNotice notice={state.notice} /><SoulDriftNotice drift={bot.soulDrift} onReview={() => openBotSettings(dispatch, "soul")} />
       <UnreadContextOverlay messages={chatMessages} windowedMessages={windowedMessages} unreadMessageId={unreadDivider.messageId} scrollRef={scrollRef} visitKey={`${bot.id}:${bot.threadId}:${openedAt}`} onJump={(messageId) => dispatch({ type: "focusMessage", threadId: bot.threadId, messageId })} />
       <PinnedSignInSlot cards={pinnedSignIns} />
 

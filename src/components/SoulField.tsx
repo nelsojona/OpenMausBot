@@ -16,7 +16,7 @@ export function SoulField({
   simple,
 }: {
   bot: Bot;
-  onPatch: (patch: { soul?: string; description?: string }) => void;
+  onPatch: (patch: { soul?: string; description?: string; expectedRevision?: string; confirmSoulShrink?: boolean }) => void;
   simple?: { label: string; placeholder: string };
 }) {
   const { dispatch, flushBotPatches } = useStore();
@@ -25,9 +25,11 @@ export function SoulField({
   const [draft, setDraft] = useState(bot.soul ?? "");
   const [info, setInfo] = useState<SoulRead | null>(null);
   const [resolving, setResolving] = useState(false);
+  const [pendingShrink, setPendingShrink] = useState<string | null>(null);
 
   useEffect(() => {
     setDraft(bot.soul ?? "");
+    setPendingShrink(null);
   }, [bot.id, bot.soul]);
 
   // Must not key off bot.soul: onPatch updates it on every keystroke, which would refetch per keystroke.
@@ -41,10 +43,31 @@ export function SoulField({
 
   const bytes = utf8Bytes(draft);
   const over = bytes > limit;
+  const savedSoul = info?.soul ?? bot.soul ?? "";
   const change = (value: string) => {
     setDraft(value);
     const patch = soulPatchFor(value, limit);
-    if (patch) onPatch(patch);
+    if (!patch) {
+      setPendingShrink(null);
+      return;
+    }
+    if (savedSoul.trim().length >= 80 && value.trim().length < savedSoul.trim().length / 2) {
+      setPendingShrink(value);
+      return;
+    }
+    setPendingShrink(null);
+    onPatch({ ...patch, ...(info?.revision ? { expectedRevision: info.revision } : {}) });
+  };
+  const confirmShrink = () => {
+    if (pendingShrink === null) return;
+    const value = pendingShrink;
+    setPendingShrink(null);
+    onPatch({ soul: value, ...(info?.revision ? { expectedRevision: info.revision } : {}), confirmSoulShrink: true });
+    void refresh();
+  };
+  const cancelShrink = () => {
+    setPendingShrink(null);
+    setDraft(savedSoul);
   };
   const resolve = async (action: "apply-file" | "discard-file") => {
     if (resolving || !info?.revision || typeof info.fileText !== "string") return;
@@ -98,18 +121,34 @@ export function SoulField({
           </div>
         </div>
       )}
+      {pendingShrink !== null && (
+        <div role="status" className="mb-2 rounded-xl border border-warning/40 bg-warning/10 p-3 text-[12px] text-ink">
+          <div className="font-medium">{t("botIdentity.soul.shrinkTitle")}</div>
+          <div className="mt-1 text-ink-secondary">{t("botIdentity.soul.shrinkHelp")}</div>
+          <div className="mt-2 flex gap-2">
+            <button type="button" onClick={confirmShrink} className="ui-button ui-button-sm ui-button-primary">
+              {t("botIdentity.soul.confirmShrink")}
+            </button>
+            <button type="button" onClick={cancelShrink} className="ui-button ui-button-sm">
+              {t("botIdentity.soul.cancelShrink")}
+            </button>
+          </div>
+        </div>
+      )}
       <textarea
         id={`bot-soul-${bot.id}`}
+        dir="auto"
         className={cn(
           inputCls,
           simple ? "min-h-[140px] resize-y rounded-xl text-[14px] leading-relaxed" : "min-h-[220px] resize-y font-mono leading-relaxed",
-          over && "ring-2 ring-red-500/60",
+          over && "ring-2 ring-danger/60",
         )}
         placeholder={simple ? simple.placeholder : t("bot.soul.placeholder")}
         aria-invalid={over || undefined}
         disabled={resolving}
         value={draft}
         onChange={(e) => change(e.target.value)}
+        onBlur={() => { if (pendingShrink === null) void refresh(); }}
       />
       {(!simple || over) && <div className="mt-1.5 flex items-start justify-between gap-3 text-[11px] text-ink-secondary">
         <span>
