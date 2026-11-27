@@ -575,9 +575,64 @@ describe("a bot's profile changes below Full access", () => {
     const { store, bot } = harness({ name: "Scout" });
     store.patchBot(bot.id, { soul: "Use sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGH for the API." });
     const service = new ProfileRequestService({ store, autoApply: rule });
-    const applied = service.submit({ botId: bot.id, threadId: bot.threadId, changes: { soul: "Be brief." }, reason: "asked" });
+    const applied = service.submit({
+      botId: bot.id,
+      threadId: bot.threadId,
+      changes: { soul_ops: [{ op: "add", line: "Be brief." }] },
+      reason: "asked",
+    });
     expect(applied.state).toBe("applied");
     expect(store.messagesFor(bot.threadId)[0]?.card?.profileRequest?.undo).toBeUndefined();
     expect(service.undo({ botId: bot.id, threadId: bot.threadId, requestId: applied.requestId })).toMatchObject({ state: "invalid", status: 409 });
+  });
+
+  it("applies add-only soul_ops immediately at Full access, and requires confirmation for removals and rewrites", () => {
+    const { store, bot } = harness({ name: "Scout" });
+    store.patchBot(bot.id, { soul: "Always cite sources.\nNever use emojis." });
+    const service = new ProfileRequestService({ store, autoApply: () => "full-access" });
+
+    const added = service.submit({
+      botId: bot.id,
+      threadId: bot.threadId,
+      changes: { soul_ops: [{ op: "add", line: "Reply in Spanish." }] },
+      reason: "User asked to reply in Spanish",
+    });
+    expect(added.state).toBe("applied");
+    expect(bot.soul).toBe("Always cite sources.\nNever use emojis.\nReply in Spanish.");
+
+    const removed = service.submit({
+      botId: bot.id,
+      threadId: bot.threadId,
+      changes: { soul_ops: [{ op: "remove", match: "Never use emojis." }] },
+      reason: "Dropping emoji rule",
+    });
+    expect(removed.state).toBe("pending");
+    expect(bot.soul).toBe("Always cite sources.\nNever use emojis.\nReply in Spanish.");
+    const removeCard = store.messagesFor(bot.threadId).at(-1)!.card!;
+    expect(removeCard.options).toEqual(["Confirm", "Cancel"]);
+    expect(removeCard.dismissed).toBeUndefined();
+
+    const replaced = service.submit({
+      botId: bot.id,
+      threadId: bot.threadId,
+      changes: { soul_ops: [{ op: "replace", match: "Always cite sources.", line: "Cite sources when helpful." }] },
+      reason: "Softening citation rule",
+    });
+    expect(replaced.state).toBe("pending");
+    expect(bot.soul).toBe("Always cite sources.\nNever use emojis.\nReply in Spanish.");
+    expect(store.messagesFor(bot.threadId).at(-1)!.card!.options).toEqual(["Confirm", "Cancel"]);
+
+    const paraphrasedWhole = service.submit({
+      botId: bot.id,
+      threadId: bot.threadId,
+      changes: { soul: "Cite sources when possible.\nNever use emojis.\nReply in Spanish." },
+      reason: "Paraphrasing via whole soul",
+    });
+    expect(paraphrasedWhole.state).toBe("pending");
+    expect(bot.soul).toBe("Always cite sources.\nNever use emojis.\nReply in Spanish.");
+
+    const confirmed = service.resolve({ botId: bot.id, threadId: bot.threadId, requestId: removed.requestId, behavior: "allow" });
+    expect(confirmed).toMatchObject({ claimed: true, state: "applied", fields: ["soul"] });
+    expect(bot.soul).toBe("Always cite sources.\nReply in Spanish.");
   });
 });
