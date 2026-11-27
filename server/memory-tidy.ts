@@ -15,6 +15,7 @@ export interface TidyPlan {
   expired: MemoryEntryLine[];
   duplicates: MemoryEntryLine[];
   superseded: Array<{ loser: MemoryEntryLine; winner: MemoryEntryLine; remainder?: string }>;
+  conflicts: Array<{ rule: MemoryEntryLine; other: MemoryEntryLine }>;
   deferred: number;
 }
 
@@ -53,11 +54,16 @@ export function planTidy(text: string, today: string, contradictions: readonly C
   const budget = Math.max(minimumBudget, contradictionBudget(live.length));
   const touched = new Set<number>();
   const superseded: TidyPlan["superseded"] = [];
+  const conflicts: TidyPlan["conflicts"] = [];
   let deferred = 0;
   for (const pair of contradictions) {
     const a = candidates[pair.a];
     const b = candidates[pair.b];
     if (!a || !b || a.line === b.line) continue;
+    if (a.kind === "rule" || b.kind === "rule") {
+      conflicts.push(a.kind === "rule" ? { rule: a, other: b } : { rule: b, other: a });
+      continue;
+    }
     const [winner, loser] = pair.keep === "a" ? [a, b] : [b, a];
     if (touched.has(winner.line) || touched.has(loser.line)) continue;
     if (superseded.length >= budget) {
@@ -68,7 +74,7 @@ export function planTidy(text: string, today: string, contradictions: readonly C
     touched.add(loser.line);
     touched.add(winner.line);
   }
-  return { expired, duplicates, superseded, deferred };
+  return { expired, duplicates, superseded, conflicts, deferred };
 }
 
 export function planChanges(plan: TidyPlan): number {

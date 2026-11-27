@@ -676,6 +676,10 @@ export function createMemoryUpkeep(deps: UpkeepDeps): MemoryUpkeep {
       note = "The notes changed during the check; contradictions wait for the next tidy-up.";
     }
     const plan = planTidy(before, today, contradictions);
+    if (plan.conflicts.length) {
+      const summary = plan.conflicts.map(({ rule, other }) => `"${rule.body}" vs "${other.body}"`).join("; ");
+      note = [note, `Rule conflict kept for your review (nothing struck): ${summary}`].filter(Boolean).join(" ");
+    }
     if (planChanges(plan)) {
       const { text, archived } = applyTidy(before, plan, today);
       // The archive is written first: a line is never out of MEMORY.md before it is in the archive.
