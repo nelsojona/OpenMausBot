@@ -63,9 +63,9 @@ export function LocalAppView({ id, botOf, onBack, onGoToChat, onOpenWindow }: {
   const [installFailed, setInstallFailed] = useState<string | null>(null);
   useEffect(() => { if (!install) void readInstalled(); }, [install]);
 
-  useEffect(() => { if (!apps) void loadLocalApps(); }, [apps]);
   useEffect(() => {
     const look = () => { if (document.visibilityState !== "hidden") void loadLocalApps(); };
+    void loadLocalApps();
     const timer = setInterval(look, FOLLOW_MS);
     window.addEventListener("focus", look);
     return () => { clearInterval(timer); window.removeEventListener("focus", look); };

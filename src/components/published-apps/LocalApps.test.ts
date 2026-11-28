@@ -232,6 +232,18 @@ describe("a saved app open in its own view", () => {
     expect(host.querySelector("iframe")!.srcdoc).toContain("Sales board version 3");
   });
 
+  it("shows a version the bot added while the person was away, coming back to the app still open", async () => {
+    openLocalApp(BOARD.id);
+    await show();
+    expect(host.querySelector("[data-local-app-version]")?.textContent).toBe("Version 3");
+    act(() => root.unmount());
+    saved = [{ ...BOARD, versions: [...BOARD.versions, { rev: 3, at: NOW }], rev: 3 }, ROTA];
+    root = createRoot(host);
+    await show();
+    expect(host.querySelector("[data-local-app-version]")?.textContent).toBe("Version 4");
+    expect(host.querySelector("iframe")!.srcdoc).toContain("Sales board version 4");
+  });
+
   it("goes to the chat from the header, and has none for an app whose chat is gone", async () => {
     openLocalApp(BOARD.id);
     await show();
